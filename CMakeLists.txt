@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
-project(justaman_libs LANGUAGES CXX)
+project(
+    justaman_libs
+    VERSION 1.0.1
+    LANGUAGES CXX
+)
+
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -17,6 +22,7 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 message(STATUS "------------------------ JustAMan's C++ libs --------------------------")
+message(STATUS "Using project version:  ${PROJECT_VERSION}")
 message(STATUS "Using CMake:            ${CMAKE_VERSION}")
 message(STATUS "Compiler C++:           ${CMAKE_CXX_COMPILER}")
 message(STATUS "Building project in:    ${CMAKE_BUILD_TYPE}")
