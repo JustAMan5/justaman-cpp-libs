@@ -1,7 +1,7 @@
 /build/
 /build*/
 /out/
-/vscode
+/.vscode
 
 /CMakeUserPresets.json
 

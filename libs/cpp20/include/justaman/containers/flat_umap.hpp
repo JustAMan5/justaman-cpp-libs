@@ -8,6 +8,7 @@
 #include <justaman/memory/lifetime.hpp>
 #include <justaman/utils/attributes.h>
 
+
 namespace jman 
 {
 
@@ -117,8 +118,8 @@ namespace jman
 
             JMAN_FORCE_INLINE void destroy_slot(slot& sl) noexcept
             {
-                jman::destruct_at<K>(&sl.key);
-                jman::destruct_at<V>(&sl.val);
+                jman::destruct_at<K>(jman::addressof(get_key(sl)));
+                jman::destruct_at<V>(jman::addressof(get_value(sl)));
             }
 
             void move_slot(slot& src, slot& dst) noexcept
@@ -806,7 +807,7 @@ void jman::flat_umap<K, V, Hash>::rehash(std::size_t count)
         if (ctrl.signature >= 0 && m_size < m_capacity) {
             unchecked_assign(std::move_if_noexcept(get_key(slot)), std::move_if_noexcept(get_value(slot)));
             destroy_slot(slot);
-        } else {
+        } else if (ctrl.signature >= 0) {
             destroy_slot(slot); // truncate and destroy old object
         }
     }

@@ -835,17 +835,25 @@ void jman::vector<T, S>::assign(size_type count, const T& value)
 {
     clear();
     if (count > m_capacity) grow(count - m_capacity);
+    m_size = m_capacity;
 
-    size_type constructed = 0;
-
-    try {
+    if constexpr (std::is_nothrow_copy_constructible_v<T>) {
         for (size_type i = 0; i < count; ++i) {
-            jman::construct_at<T>(m_buffer + i, std::move_if_noexcept(m_buffer[i]));
-            jman::destruct_at(m_buffer + i); // call destructor since the object might be copied
-            ++constructed;
+                jman::construct_at<T>(m_buffer + i, value);
+                jman::destruct_at(m_buffer + i); // call destructor since the object might be copied
+            }
+    } else {
+        size_type constructed = 0;
+
+        try {
+            for (size_type i = 0; i < count; ++i) {
+                jman::construct_at<T>(m_buffer + i, value);
+                jman::destruct_at(m_buffer + i); // call destructor since the object might be copied
+                ++constructed;
+            }
+        } catch (...) {
+            jman::destruct_at(constructed, m_buffer);
+            throw;
         }
-    } catch (...) {
-        jman::destruct_at(constructed, m_buffer);
-        throw;
     }
 }

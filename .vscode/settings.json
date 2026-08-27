@@ -1,7 +1,0 @@
-{
-  "clangd.arguments": [
-    "--compile-commands-dir=${workspaceFolder}/build/release",
-    "--query-driver=C:\\msys64\\ucrt64\\bin\\g++*.exe,C:\\msys64\\ucrt64\\bin\\clang++*.exe",
-    "--query-driver=C:\\msys64\\ucrt64\\bin\\gcc*.exe,C:\\msys64\\ucrt64\\bin\\clang*.exe",
-  ],
-}

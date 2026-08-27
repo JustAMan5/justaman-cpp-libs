@@ -3,10 +3,21 @@ project(justaman_libs LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(libs)
-add_subdirectory(tests)
+if(PROJECT_IS_TOP_LEVEL) # copy the compile commands to the source dir
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_BINARY_DIR}/compile_commands.json" 
+        "${CMAKE_SOURCE_DIR}/compile_commands.json"
+    )
+endif()
 
-message(STATUS "")
+add_subdirectory(libs)
+if(PROJECT_IS_TOP_LEVEL)
+    add_subdirectory(tests)
+endif()
+
+message(STATUS "------------------------ JustAMan's C++ libs --------------------------")
 message(STATUS "Using CMake:            ${CMAKE_VERSION}")
 message(STATUS "Compiler C++:           ${CMAKE_CXX_COMPILER}")
 message(STATUS "Building project in:    ${CMAKE_BUILD_TYPE}")
+message(STATUS "-----------------------------------------------------------------------")
