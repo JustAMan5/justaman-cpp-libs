@@ -34,10 +34,10 @@ namespace jman
             thread_pool& operator=(thread_pool&&) noexcept = delete;
 
             template <typename F, typename... Args>
-            requires jman::is_callable_v<F, Args...>
-            auto                            submit(F&& func, std::size_t priority = 0, Args&&... args) -> std::future<std::invoke_result_t<F, Args...>>
+            requires jman::is_callable_v<F, std::stop_token, Args...>
+            auto                            submit(F&& func, std::size_t priority = 0, Args&&... args) -> std::future<std::invoke_result_t<F, std::stop_token, Args...>>
             {
-                using R = std::invoke_result_t<F, Args...>; // gets the result type for F depending on Args... types
+                using R = std::invoke_result_t<F, std::stop_token, Args...>; // gets the result type for F depending on Args... types
 
                 std::packaged_task<R(std::stop_token tk)> task{ // create a promise and wrap it around the func 
                     [func = std::forward<F>(func), ...args = std::forward<Args>(args)](std::stop_token tk) mutable {
@@ -46,7 +46,7 @@ namespace jman
                 std::future<R> fut = task.get_future(); // grabs the future before moving the task
                 auto wrapper_func = [task = std::move(task)](std::stop_token tk) mutable { std::move(task)(tk); }; // move the task inside the lambda capture
 
-                push(std::move(wrapper_func));
+                push(std::move(wrapper_func), priority);
                 return fut;
             }
 
