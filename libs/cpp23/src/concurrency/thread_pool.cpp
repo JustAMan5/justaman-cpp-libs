@@ -33,10 +33,10 @@ struct jman::thread_pool::impl
                 std::unique_lock<std::mutex> lock(mutex);
 
                 submited_or_stop_cv.wait(lock, [this] {
-                    return stop || !tasks.empty();
+                    return stop.load(std::memory_order_relaxed) || !tasks.empty();
                 });
 
-                if (stop && tasks.empty()) return;
+                if (stop.load(std::memory_order_relaxed) && tasks.empty()) return;
 
                 task = std::move(tasks.peek());
                 tasks.pop();
@@ -62,7 +62,7 @@ struct jman::thread_pool::impl
 
 void jman::thread_pool::push(std::move_only_function<void(std::stop_token)>&& task, std::size_t priority)
 {
-    if (m_impl->stop)
+    if (m_impl->stop.load(std::memory_order_relaxed))
         throw std::runtime_error("justaman::thread_pool::submit failed: submit() called after shutdown()");
 
     std::lock_guard<std::mutex> lock(m_impl->mutex);
@@ -92,6 +92,7 @@ jman::thread_pool::thread_pool(std::uint32_t thread_count)
 jman::thread_pool::~thread_pool() noexcept 
 {
     shutdown();
+    wait_all();
 }
 
 

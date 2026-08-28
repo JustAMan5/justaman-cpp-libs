@@ -13,4 +13,13 @@ namespace jman
 
     template<typename F, typename ...Args>
     inline constexpr bool is_callable_v = std::is_invocable_v<F, Args...>;
+
+    template <template <typename...> class T, typename U>
+    struct is_specialization_of: std::false_type {};
+
+    template <template <typename...> class T, typename ...Us>
+    struct is_specialization_of<T, T<Us...>>: std::true_type {};
+
+    template<template <typename...> class T, typename ...Us>
+    inline constexpr bool is_specialization_of_v = is_specialization_of<T, Us...>();
 }

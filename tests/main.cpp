@@ -1,6 +1,7 @@
 #include <justaman/io/logger.hpp>
 #include <justaman/utils/random.hpp>
 #include <justaman/containers/flat_umap.hpp>
+#include <justaman/meta/type_traits.hpp>
 
 struct TestObject 
 {
@@ -42,17 +43,22 @@ struct TestObject
 
 int main()
 {
-    jman::random32 rng {};
-    jman::flat_umap<int, TestObject> test {};
+    bool test2 = jman::is_specialization_of_v<std::vector, jman::vector<int>>;
+    jman::println("{}", test2);
+    jman::println("{}", jman::is_specialization_of_v<jman::vector, jman::vector<int>>);
+    
+    
+    // jman::random32 rng {};
+    // jman::flat_umap<int, TestObject> test {};
 
-    test.emplace(1);
-    jman::println("1");
-    test.emplace(2);
-    jman::println("2");
-    test.emplace(3);
-    jman::println("3");
-    test.emplace(4);
-    jman::println("4");
-    test.emplace(5);
-    jman::println("5");
+    // test.emplace(1);
+    // jman::println("1");
+    // test.emplace(2);
+    // jman::println("2");
+    // test.emplace(3);
+    // jman::println("3");
+    // test.emplace(4);
+    // jman::println("4");
+    // test.emplace(5);
+    // jman::println("5");
 }
