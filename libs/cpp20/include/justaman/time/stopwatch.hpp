@@ -7,12 +7,12 @@ namespace jman
 {
     class stopwatch 
     {
-        using Duration =                        std::chrono::duration<double>;
-        using Clock    =                        std::chrono::steady_clock;
-        using TimePoint =                       Clock::time_point;
+        using duration =                        std::chrono::duration<double>;
+        using clock    =                        std::chrono::steady_clock;
+        using time_point =                      clock::time_point;
 
-        Clock::time_point                       m_start = {};
-        Duration                                m_accumulated = Duration::zero();
+        clock::time_point                       m_start = {};
+        duration                                m_accumulated = duration::zero();
         bool                                    m_running = false;
 
         public:
@@ -32,7 +32,7 @@ namespace jman
 
 
             // TIME PASSED
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE Duration elapsed_duration() const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE duration elapsed_duration() const noexcept;
             JMAN_NO_DISCARD JMAN_FORCE_INLINE double   elapsed_seconds() const;
             JMAN_NO_DISCARD JMAN_FORCE_INLINE double   elapsed_milliseconds() const;
             JMAN_NO_DISCARD JMAN_FORCE_INLINE double   elapsed_microseconds() const;
@@ -52,24 +52,24 @@ namespace jman
 JMAN_FORCE_INLINE void jman::stopwatch::start() noexcept 
 {
     if (m_running) return;
-        m_start = Clock::now();
-        m_running = true;
+    m_start = clock::now();
+    m_running = true;
 }
 JMAN_FORCE_INLINE void jman::stopwatch::pause() noexcept 
 {
     if (!m_running) return;
-    m_accumulated += Clock::now() - m_start;
+    m_accumulated += clock::now() - m_start;
     m_running = false;
 }
 JMAN_FORCE_INLINE void jman::stopwatch::resume() noexcept 
 {
     if (m_running) return;
-    m_start = Clock::now();
+    m_start = clock::now();
     m_running = true;
 }
 JMAN_FORCE_INLINE void jman::stopwatch::reset() noexcept 
 {
-    m_accumulated = Duration::zero();
+    m_accumulated = duration::zero();
     m_running = false;
 }
 
@@ -84,11 +84,11 @@ JMAN_FORCE_INLINE bool jman::stopwatch::is_paused() const noexcept { return !m_r
 // ------------------------------------- TIME PASSED --------------------------------//
 // ###################################################################################
 
-JMAN_FORCE_INLINE jman::stopwatch::Duration jman::stopwatch::elapsed_duration() const noexcept 
+JMAN_FORCE_INLINE jman::stopwatch::duration jman::stopwatch::elapsed_duration() const noexcept 
 {
-    Duration total = m_accumulated;
+    duration total = m_accumulated;
     if (m_running)
-        total += Clock::now() - m_start;
+        total += clock::now() - m_start;
     return total;
 }
 JMAN_FORCE_INLINE double jman::stopwatch::elapsed_seconds() const 

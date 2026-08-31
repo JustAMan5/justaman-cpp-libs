@@ -10,7 +10,7 @@
 #include "../utils/attributes.h"
 #include <utility>
 #include <version> // forced to include it to avoid some weird problems when using std::println
-#if defined (__cpp_lib_print)
+#if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
     #include <print>
 #else
     #include <iostream>
@@ -75,7 +75,7 @@ namespace jman
     JMAN_FORCE_INLINE void print(std::format_string<Args...> str, Args&&... args) 
     {
         if (log_level::none < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::print(std::move(str), std::forward<Args>(args)...);
         #else
             std::cout << std::format(std::move(str), std::forward<Args>(args)...);
@@ -85,7 +85,7 @@ namespace jman
     JMAN_FORCE_INLINE void println(std::format_string<Args...> str, Args&&... args)
     {        
         if (log_level::none < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::println(std::move(str), std::forward<Args>(args)...);
         #else
             std::cout << std::format(std::move(str), std::forward<Args>(args)...) << '\n';
@@ -100,7 +100,7 @@ namespace jman
     JMAN_FORCE_INLINE void warn(std::format_string<Args...> str, Args&&... args)
     {
         if (log_level::warn < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::print("\e[0;33m[Warn] -> ");
             std::print(std::move(str), std::forward<Args>(args)...);
             std::print("\e[0m");
@@ -112,7 +112,7 @@ namespace jman
     JMAN_FORCE_INLINE void warnln(std::format_string<Args...> str, Args&&... args)
     {
         if (log_level::warn < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::print("\e[0;33m[Warn] -> ");
             std::print(std::move(str), std::forward<Args>(args)...);
             std::println("\e[0m");
@@ -129,7 +129,7 @@ namespace jman
     JMAN_FORCE_INLINE void debug(std::format_string<Args...> str, Args&&... args)
     {
         if (log_level::debug < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::print("\e[0;32m[Debug] -> ");
             std::print(std::move(str), std::forward<Args>(args)...);
             std::print("\e[0m");
@@ -141,7 +141,7 @@ namespace jman
     JMAN_FORCE_INLINE void debugln(std::format_string<Args...> str, Args&&... args)
     {
         if (log_level::debug < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::print("\e[0;32m[Debug] -> ");
             std::print(std::move(str), std::forward<Args>(args)...);
             std::println("\e[0m");
@@ -158,7 +158,7 @@ namespace jman
     JMAN_FORCE_INLINE void error(std::format_string<Args...> str, Args&&... args) 
     {   
         if (log_level::exception < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::print("\e[0;31m[Error] -> ");
             std::print(std::move(str), std::forward<Args>(args)...);
             std::print("\e[0m");
@@ -170,7 +170,7 @@ namespace jman
     JMAN_FORCE_INLINE void errorln(std::format_string<Args...> str, Args&&... args) 
     {  
         if (log_level::exception < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::print("\e[0;31m[Error] -> ");
             std::print(std::move(str), std::forward<Args>(args)...);
             std::println("\e[0m");
@@ -182,7 +182,7 @@ namespace jman
     JMAN_FORCE_INLINE void error(std::error_code code)
     {
         if (log_level::exception < configure_logs().get_level()) return;
-        #if defined (__cpp_lib_print)
+        #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L
             std::print(
                 "\e[0;31m[ Error ]\n"
                 "   Category : {}\n"

@@ -37,9 +37,9 @@ namespace jman
         jman::vector<node> m_data {};
 
         private:
-            void swim(std::size_t index)
+            void __swim(std::size_t index)
                 noexcept(std::is_nothrow_swappable_v<T>); // fix up
-            void sink(std::size_t index)
+            void __sink(std::size_t index)
                 noexcept(std::is_nothrow_swappable_v<T>); // fix down
         
         public: 
@@ -68,7 +68,7 @@ namespace jman
 }
 
 template <typename T>
-void jman::priority_queue<T>::swim(std::size_t index)
+void jman::priority_queue<T>::__swim(std::size_t index)
     noexcept(std::is_nothrow_swappable_v<T>)
 {
     while (index > 0 && m_data[(index - 1) / 2].priority < m_data[index].priority)
@@ -79,7 +79,7 @@ void jman::priority_queue<T>::swim(std::size_t index)
     }
 }
 template <typename T>
-void jman::priority_queue<T>::sink(std::size_t index)
+void jman::priority_queue<T>::__sink(std::size_t index)
     noexcept(std::is_nothrow_swappable_v<T>)
 {
     while (2 * index + 1 < m_data.size()) // if atleast left child exists
@@ -106,7 +106,7 @@ requires std::is_convertible_v<TT, T>
 void jman::priority_queue<T>::push(TT&& value, std::size_t priority)
 {
     m_data.emplace_back(priority, static_cast<T>(std::forward<TT>(value)));
-    swim(m_data.size() - 1);
+    __swim(m_data.size() - 1);
 }
 
 template <typename T>
@@ -114,7 +114,7 @@ template <typename ...Args>
 void jman::priority_queue<T>::emplace(std::size_t priority, Args&& ...args)
 {
     m_data.emplace_back(priority, std::forward<Args>(args)...);
-    swim(m_data.size() - 1);
+    __swim(m_data.size() - 1);
 }
 
 template <typename T>
@@ -127,5 +127,5 @@ void jman::priority_queue<T>::pop()
     m_data.front() = std::move_if_noexcept(m_data.back());
     m_data.pop_back();
 
-    sink(0);
+    __sink(0);
 }

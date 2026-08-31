@@ -33,8 +33,12 @@ namespace jman
             higher than the current index, we swap them, and keep going until we actually reach the a dead spot
     */
     template <typename K, typename V, class Hash = std::hash<K>>
+
     class flat_umap 
     {
+        static_assert(!std::is_reference_v<K> && !std::is_reference_v<V>);
+        static_assert(!std::is_void_v<K> && !std::is_void_v<V>);
+
         public:
             using key_type          = K;
             using mapped_type       = V;
@@ -74,34 +78,34 @@ namespace jman
             size_type m_capacity = 0; 
 
         private:
-            JMAN_FORCE_INLINE K& get_key(slot& sl) noexcept
+            JMAN_FORCE_INLINE K& __key(slot& sl) noexcept
             {
                 return *std::launder(reinterpret_cast<K*>(sl.key));
             }
 
-            JMAN_FORCE_INLINE V& get_value(slot& sl) noexcept
+            JMAN_FORCE_INLINE V& __value(slot& sl) noexcept
             {
                 return *std::launder(reinterpret_cast<V*>(sl.val));
             }
 
-            JMAN_FORCE_INLINE const K& get_key(const slot& sl) const noexcept
+            JMAN_FORCE_INLINE const K& __key(const slot& sl) const noexcept
             {
                 return *std::launder(reinterpret_cast<const K*>(sl.key));
             }
 
-            JMAN_FORCE_INLINE const V& get_value(const slot& sl) const noexcept
+            JMAN_FORCE_INLINE const V& __value(const slot& sl) const noexcept
             {
                 return *std::launder(reinterpret_cast<const V*>(sl.val));
             }
 
-            JMAN_FORCE_INLINE bool needs_rehash() const noexcept
+            JMAN_FORCE_INLINE bool __needs_rehash() const noexcept
             {
                 return (m_size + 1) * 5 > m_capacity * 4; // 0.8 = 4 / 5 for avoiding floats operations
             }
 
-            JMAN_FORCE_INLINE void grow()
+            JMAN_FORCE_INLINE void __grow()
             {
-                if (!needs_rehash()) return;
+                if (!__needs_rehash()) return;
                 this->rehash(jman::max(m_capacity * 2, MINIMUM_CAPACITY));
             }
 
@@ -118,20 +122,20 @@ namespace jman
 
             JMAN_FORCE_INLINE void destroy_slot(slot& sl) noexcept
             {
-                jman::destruct_at<K>(jman::addressof(get_key(sl)));
-                jman::destruct_at<V>(jman::addressof(get_value(sl)));
+                jman::destruct_at<K>(jman::addressof(__key(sl)));
+                jman::destruct_at<V>(jman::addressof(__value(sl)));
             }
 
             void move_slot(slot& src, slot& dst) noexcept
             {
-                K& srcKey = get_key(src);
-                K& dstKey = get_key(dst);
+                K& srcKey = __key(src);
+                K& dstKey = __key(dst);
                 jman::destruct_at(jman::addressof(dstKey));
                 jman::construct_at<K>(jman::addressof(dstKey), std::move_if_noexcept(srcKey));
                 jman::destruct_at(jman::addressof(srcKey));
 
-                V& srcVal = get_value(src);
-                V& dstVal = get_value(dst);
+                V& srcVal = __value(src);
+                V& dstVal = __value(dst);
                 jman::destruct_at(jman::addressof(dstVal));
                 jman::construct_at<V>(jman::addressof(dstVal), std::move_if_noexcept(srcVal));
                 jman::destruct_at(jman::addressof(srcVal));
@@ -152,12 +156,12 @@ namespace jman
                     const flat_umap* m_map;
                     mutable size_type m_index;
 
-                    JMAN_FORCE_INLINE void skip_empty_inc() noexcept {
+                    JMAN_FORCE_INLINE void __skip_empty_inc() noexcept {
                         while (m_index < m_map->m_capacity && m_map->m_ctrl[m_index].signature == flat_umap::EMPTY)
                             ++m_index;
                     }
 
-                    JMAN_FORCE_INLINE void skip_empty_dec() noexcept {
+                    JMAN_FORCE_INLINE void __skip_empty_dec() noexcept {
                         while (m_index > 0 && m_map->m_ctrl[m_index].signature == flat_umap::EMPTY)
                             --m_index;
                     }
@@ -169,12 +173,12 @@ namespace jman
                     using pointer           = const value_type*;
                     using reference         = const value_type&;
 
-                    const_iterator() { skip_empty_inc(); }
-                    explicit const_iterator(const flat_umap* ptr, size_type index): m_map(ptr), m_index(index) { skip_empty_inc(); }
+                    const_iterator() { __skip_empty_inc(); }
+                    explicit const_iterator(const flat_umap* ptr, size_type index): m_map(ptr), m_index(index) { __skip_empty_inc(); }
 
-                    JMAN_FORCE_INLINE const_iterator& operator++() const noexcept { ++m_index; skip_empty_inc(); return *this; }
+                    JMAN_FORCE_INLINE const_iterator& operator++() const noexcept { ++m_index; __skip_empty_inc(); return *this; }
                     JMAN_FORCE_INLINE const_iterator operator++(int) const noexcept { iterator retval = *this; ++(*this); return retval; }
-                    JMAN_FORCE_INLINE const_iterator& operator--() const noexcept { --m_index; skip_empty_dec(); return *this; }
+                    JMAN_FORCE_INLINE const_iterator& operator--() const noexcept { --m_index; __skip_empty_dec(); return *this; }
                     JMAN_FORCE_INLINE const_iterator operator--(int) const noexcept { iterator retval = *this; --(*this); return retval; }
                     
                     JMAN_FORCE_INLINE const_iterator operator+(difference_type index) const noexcept { return const_iterator(m_index + index); }
@@ -188,7 +192,7 @@ namespace jman
 
                     JMAN_FORCE_INLINE value_type operator*() const { 
                         auto& slot = m_map->m_slots[m_index]; 
-                        return {m_map->get_key(slot), m_map->get_value(slot)};
+                        return {m_map->__key(slot), m_map->__value(slot)};
                     }
 
                     JMAN_FORCE_INLINE bool operator==(const const_iterator& other) const noexcept { return m_index == other.m_index && m_map == other.m_map; }
@@ -206,12 +210,12 @@ namespace jman
                     const flat_umap* m_map;
                     size_type m_index;
 
-                    JMAN_FORCE_INLINE void skip_empty_inc() noexcept {
+                    JMAN_FORCE_INLINE void __skip_empty_inc() noexcept {
                         while (m_index < m_map->m_capacity && m_map->m_ctrl[m_index].signature == flat_umap::EMPTY)
                             ++m_index;
                     }
 
-                    JMAN_FORCE_INLINE void skip_empty_dec() noexcept {
+                    JMAN_FORCE_INLINE void __skip_empty_dec() noexcept {
                         while (m_index > 0 && m_map->m_ctrl[m_index].signature == flat_umap::EMPTY)
                             --m_index;
                     }
@@ -223,12 +227,12 @@ namespace jman
                     using pointer           = value_type*;
                     using reference         = value_type&;
 
-                    iterator() { skip_empty_inc(); }
-                    explicit iterator(flat_umap* ptr, size_type index): m_map(ptr), m_index(index) { skip_empty_inc(); }
+                    iterator() { __skip_empty_inc(); }
+                    explicit iterator(flat_umap* ptr, size_type index): m_map(ptr), m_index(index) { __skip_empty_inc(); }
 
-                    JMAN_FORCE_INLINE iterator& operator++() noexcept { ++m_index; skip_empty_inc(); return *this; }
+                    JMAN_FORCE_INLINE iterator& operator++() noexcept { ++m_index; __skip_empty_inc(); return *this; }
                     JMAN_FORCE_INLINE iterator operator++(int) noexcept { iterator retval = *this; ++(*this); return retval; }
-                    JMAN_FORCE_INLINE iterator& operator--() noexcept { --m_index; skip_empty_dec(); return *this; }
+                    JMAN_FORCE_INLINE iterator& operator--() noexcept { --m_index; __skip_empty_dec(); return *this; }
                     JMAN_FORCE_INLINE iterator operator--(int) noexcept { iterator retval = *this; --(*this); return retval; }
                     
                     JMAN_FORCE_INLINE iterator operator+(difference_type index) const noexcept { return iterator(m_index + index); }
@@ -242,7 +246,7 @@ namespace jman
 
                     JMAN_FORCE_INLINE value_type operator*() const { 
                         auto& slot = m_map->m_slots[m_index]; 
-                        return {m_map->get_key(slot), const_cast<V&>(m_map->get_value(slot))};
+                        return {m_map->__key(slot), const_cast<V&>(m_map->__value(slot))};
                     }
 
                     JMAN_FORCE_INLINE bool operator==(const iterator& other) const noexcept { return m_index == other.m_index && m_map == other.m_map; }
@@ -337,8 +341,8 @@ void jman::flat_umap<K, V, Hash>::unchecked_assign(KK&& key, VV&& value) noexcep
                 jman::construct_at<K>(reinterpret_cast<K*>(current_slot.key), std::forward<KK>(key));
                 jman::construct_at<V>(reinterpret_cast<V*>(current_slot.val), std::forward<VV>(value));
             } else {
-                jman::construct_at<K>(reinterpret_cast<K*>(current_slot.key), std::move_if_noexcept(get_key(incoming_slot)));
-                jman::construct_at<V>(reinterpret_cast<V*>(current_slot.val), std::move_if_noexcept(get_value(incoming_slot)));
+                jman::construct_at<K>(reinterpret_cast<K*>(current_slot.key), std::move_if_noexcept(__key(incoming_slot)));
+                jman::construct_at<V>(reinterpret_cast<V*>(current_slot.val), std::move_if_noexcept(__value(incoming_slot)));
 
                 destroy_slot(incoming_slot);
             }
@@ -349,11 +353,11 @@ void jman::flat_umap<K, V, Hash>::unchecked_assign(KK&& key, VV&& value) noexcep
 
         // already exists so just update the value
         bool signature_match = current_ctrl.signature == incoming_ctrl.signature;
-        if (signature_match && get_key(current_slot) == (slot_already_in ? get_key(incoming_slot) : key)) {
+        if (signature_match && __key(current_slot) == (slot_already_in ? __key(incoming_slot) : key)) {
             if (!slot_already_in) {
-                get_value(current_slot) = std::forward<VV>(value);
+                __value(current_slot) = std::forward<VV>(value);
             } else {
-                get_value(current_slot) = std::move_if_noexcept(get_value(incoming_slot));
+                __value(current_slot) = std::move_if_noexcept(__value(incoming_slot));
                 destroy_slot(incoming_slot);
             }
             return;
@@ -366,8 +370,8 @@ void jman::flat_umap<K, V, Hash>::unchecked_assign(KK&& key, VV&& value) noexcep
                 jman::construct_at<V>(reinterpret_cast<V*>(incoming_slot.val), std::forward<VV>(value));
                 slot_already_in = true;
             }
-            std::swap(get_value(incoming_slot), get_value(current_slot));
-            std::swap(get_key(incoming_slot), get_key(current_slot));
+            std::swap(__value(incoming_slot), __value(current_slot));
+            std::swap(__key(incoming_slot), __key(current_slot));
             std::swap(incoming_ctrl, current_ctrl);
         }
 
@@ -382,7 +386,7 @@ template <typename KK>
 requires std::convertible_to<KK, K>
 jman::flat_umap<K, V, Hash>::slot* jman::flat_umap<K, V, Hash>::find_or_insert_default(KK&& key) noexcept
 {
-    grow();
+    __grow();
     
     std::size_t hash = jman::hash64_murmur3_mix(Hash{}(key));
     std::size_t index = jman::hash64_fast_range(hash, m_capacity);
@@ -401,8 +405,8 @@ jman::flat_umap<K, V, Hash>::slot* jman::flat_umap<K, V, Hash>::find_or_insert_d
                 jman::construct_at<K>(reinterpret_cast<K*>(current_slot.key), std::forward<KK>(key));
                 jman::construct_at<V>(reinterpret_cast<V*>(current_slot.val));
             } else {
-                jman::construct_at<K>(reinterpret_cast<K*>(current_slot.key), std::move_if_noexcept(get_key(incoming_slot)));
-                jman::construct_at<V>(reinterpret_cast<V*>(current_slot.val), std::move_if_noexcept(get_value(incoming_slot)));
+                jman::construct_at<K>(reinterpret_cast<K*>(current_slot.key), std::move_if_noexcept(__key(incoming_slot)));
+                jman::construct_at<V>(reinterpret_cast<V*>(current_slot.val), std::move_if_noexcept(__value(incoming_slot)));
 
                 destroy_slot(incoming_slot);
             }
@@ -413,7 +417,7 @@ jman::flat_umap<K, V, Hash>::slot* jman::flat_umap<K, V, Hash>::find_or_insert_d
 
         // already exists so just return the value
         bool signature_match = current_ctrl.signature == incoming_ctrl.signature;
-        if (signature_match && get_key(current_slot) == (slot_already_in ? get_key(incoming_slot) : key)) {
+        if (signature_match && __key(current_slot) == (slot_already_in ? __key(incoming_slot) : key)) {
             return &current_slot;
         }
 
@@ -424,8 +428,8 @@ jman::flat_umap<K, V, Hash>::slot* jman::flat_umap<K, V, Hash>::find_or_insert_d
                 jman::construct_at<V>(reinterpret_cast<V*>(incoming_slot.val));
                 slot_already_in = true;
             }
-            std::swap(get_value(incoming_slot), get_value(current_slot));
-            std::swap(get_key(incoming_slot), get_key(current_slot));
+            std::swap(__value(incoming_slot), __value(current_slot));
+            std::swap(__key(incoming_slot), __key(current_slot));
             std::swap(incoming_ctrl, current_ctrl);
         }
 
@@ -463,8 +467,8 @@ jman::flat_umap<K, V, Hash>::flat_umap(const flat_umap& other)
             slot& slot = other.m_slots[i];
 
             if (ctrl.signature >= 0) {
-                jman::construct_at<K>(m_slots[i].key, get_key(slot));
-                jman::construct_at<V>(m_slots[i].val, get_value(slot));
+                jman::construct_at<K>(m_slots[i].key, __key(slot));
+                jman::construct_at<V>(m_slots[i].val, __value(slot));
             }
         }
         
@@ -479,8 +483,8 @@ jman::flat_umap<K, V, Hash>::flat_umap(const flat_umap& other)
                 slot& slot = other.m_slots[i];
 
                 if (ctrl.signature >= 0) {
-                    jman::construct_at<K>(m_slots[i].key, get_key(slot));
-                    jman::construct_at<V>(m_slots[i].val, get_value(slot));
+                    jman::construct_at<K>(m_slots[i].key, __key(slot));
+                    jman::construct_at<V>(m_slots[i].val, __value(slot));
                     m_ctrl[i] = other.m_ctrl[i];
                 }
             }
@@ -521,8 +525,8 @@ jman::flat_umap<K, V, Hash>& jman::flat_umap<K, V, Hash>::operator=(const flat_u
                 slot& slot = other.m_slots[i];
 
                 if (ctrl.signature >= 0) {
-                    jman::construct_at<K>(m_slots[i].key, get_key(slot));
-                    jman::construct_at<V>(m_slots[i].val, get_value(slot));
+                    jman::construct_at<K>(m_slots[i].key, __key(slot));
+                    jman::construct_at<V>(m_slots[i].val, __value(slot));
                 }
             }
             
@@ -537,8 +541,8 @@ jman::flat_umap<K, V, Hash>& jman::flat_umap<K, V, Hash>::operator=(const flat_u
                     slot& slot = other.m_slots[i];
 
                     if (ctrl.signature >= 0) {
-                        jman::construct_at<K>(m_slots[i].key, get_key(slot));
-                        jman::construct_at<V>(m_slots[i].val, get_value(slot));
+                        jman::construct_at<K>(m_slots[i].key, __key(slot));
+                        jman::construct_at<V>(m_slots[i].val, __value(slot));
                         m_ctrl[i] = other.m_ctrl[i];
                     }
                 }
@@ -583,8 +587,8 @@ jman::flat_umap<K, V, Hash>::flat_umap(flat_umap&& other) noexcept
         slot& slot = other.m_slots[i];
 
         if (ctrl.signature >= 0) {
-            get_key(m_slots[i]) = std::move_if_noexcept(get_key(slot));
-            get_value(m_slots[i]) = std::move_if_noexcept(get_value(slot));
+            __key(m_slots[i]) = std::move_if_noexcept(__key(slot));
+            __value(m_slots[i]) = std::move_if_noexcept(__value(slot));
 
             destroy_slot(slot);
         }
@@ -614,8 +618,8 @@ jman::flat_umap<K, V, Hash>& jman::flat_umap<K, V, Hash>::operator=(flat_umap&& 
             slot& slot = other.m_slots[i];
 
             if (ctrl.signature >= 0) {
-                get_key(m_slots[i]) = std::move_if_noexcept(get_key(slot));
-                get_value(m_slots[i]) = std::move_if_noexcept(get_value(slot));
+                __key(m_slots[i]) = std::move_if_noexcept(__key(slot));
+                __value(m_slots[i]) = std::move_if_noexcept(__value(slot));
 
                 destroy_slot(slot);
             }
@@ -659,8 +663,8 @@ V& jman::flat_umap<K, V, Hash>::at(const key_type& key)
         if (ctrl.signature == EMPTY || ctrl.psl < psl) 
             throw std::out_of_range("jman::flat_umap<K, V>::at() failed: no value found for the provided key.");
 
-        if (ctrl.signature == h2 && get_key(m_slots[index]) == key)
-            return get_value(m_slots[index]);
+        if (ctrl.signature == h2 && __key(m_slots[index]) == key)
+            return __value(m_slots[index]);
 
         ++index;
         if JMAN_UNLIKELY(index >= m_capacity) index = 0;
@@ -685,8 +689,8 @@ const V& jman::flat_umap<K, V, Hash>::at(const K& key) const
         if (ctrl.signature == EMPTY || ctrl.psl < psl) 
             throw std::out_of_range("jman::flat_umap<K, V>::at() failed: no value found for the provided key.");
 
-        if (ctrl.signature == h2 && get_key(m_slots[index]) == key)
-            return get_value(m_slots[index]);
+        if (ctrl.signature == h2 && __key(m_slots[index]) == key)
+            return __value(m_slots[index]);
 
         ++index;
         if JMAN_UNLIKELY(index >= m_capacity) index = 0;
@@ -699,7 +703,7 @@ template<typename KK>
 requires std::convertible_to<KK, K>
 V& jman::flat_umap<K, V, Hash>::operator[](KK&& key)
 {
-    return get_value(*find_or_insert_default(static_cast<K>(std::forward<KK>(key))));
+    return __value(*find_or_insert_default(static_cast<K>(std::forward<KK>(key))));
 }
 
 template <typename K, typename V, class Hash>
@@ -719,7 +723,7 @@ bool jman::flat_umap<K, V, Hash>::contains(const K& key) const noexcept
         if (ctrl.signature == EMPTY || ctrl.psl < psl) 
             return false;
 
-        if (ctrl.signature == h2 && get_key(m_slots[index]) == key)
+        if (ctrl.signature == h2 && __key(m_slots[index]) == key)
             return true;
 
         ++index;
@@ -745,8 +749,8 @@ V* jman::flat_umap<K, V, Hash>::find(const key_type& key) noexcept
         if (ctrl.signature == EMPTY || ctrl.psl < psl) 
             return nullptr;
 
-        if (ctrl.signature == h2 && get_key(m_slots[index]) == key)
-            return &get_value(m_slots[index]);
+        if (ctrl.signature == h2 && __key(m_slots[index]) == key)
+            return &__value(m_slots[index]);
 
         ++index;
         if JMAN_UNLIKELY(index >= m_capacity) index = 0;
@@ -771,8 +775,8 @@ const V* jman::flat_umap<K, V, Hash>::find(const K& key) const noexcept
         if (ctrl.signature == EMPTY || ctrl.psl < psl) 
             return nullptr;
 
-        if (ctrl.signature == h2 && get_key(m_slots[index]) == key)
-            return &get_value(m_slots[index]);
+        if (ctrl.signature == h2 && __key(m_slots[index]) == key)
+            return &__value(m_slots[index]);
 
         ++index;
         if JMAN_UNLIKELY(index >= m_capacity) index = 0;
@@ -805,7 +809,7 @@ void jman::flat_umap<K, V, Hash>::rehash(std::size_t count)
         slot& slot = old_slots[i];
 
         if (ctrl.signature >= 0 && m_size < m_capacity) {
-            unchecked_assign(std::move_if_noexcept(get_key(slot)), std::move_if_noexcept(get_value(slot)));
+            unchecked_assign(std::move_if_noexcept(__key(slot)), std::move_if_noexcept(__value(slot)));
             destroy_slot(slot);
         } else if (ctrl.signature >= 0) {
             destroy_slot(slot); // truncate and destroy old object
@@ -822,7 +826,7 @@ template<typename KK, typename VV>
 requires std::convertible_to<KK, K> && std::convertible_to<VV, V>
 void jman::flat_umap<K, V, Hash>::assign(KK&& key, VV&& value)
 {
-    grow();
+    __grow();
     unchecked_assign(std::forward<KK>(key), static_cast<V>(std::forward<VV>(value)));
 }
 
@@ -831,7 +835,7 @@ template <typename KK, typename ...Args>
 requires std::convertible_to<KK, K>
 void jman::flat_umap<K, V, Hash>::emplace(KK&& key, Args&&... args)
 {
-    grow();
+    __grow();
     unchecked_assign(static_cast<K>(std::forward<KK>(key)), V {std::forward<Args>(args)...});
 }
 
@@ -855,7 +859,7 @@ void jman::flat_umap<K, V, Hash>::erase(const K& key) noexcept
         if (ctrl.signature == EMPTY || psl > ctrl.psl) 
             return;
 
-        if (ctrl.signature == h2 && get_key(m_slots[index]) == key) {
+        if (ctrl.signature == h2 && __key(m_slots[index]) == key) {
             std::size_t next = index + 1;
             if JMAN_UNLIKELY(next >= m_capacity) next = 0;
 

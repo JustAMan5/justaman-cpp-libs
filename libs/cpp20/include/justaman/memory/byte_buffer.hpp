@@ -29,11 +29,11 @@ namespace jman
         std::size_t m_write = 0;
 
         public:
-            byte_buffer() = default;
+            byte_buffer() noexcept = default;
             ~byte_buffer() noexcept = default;
 
-            byte_buffer(const byte_buffer&) = default;
-            byte_buffer& operator=(const byte_buffer&) = default;
+            byte_buffer(const byte_buffer&) noexcept = default;
+            byte_buffer& operator=(const byte_buffer&) noexcept = default;
             byte_buffer(byte_buffer&&) noexcept = default;
             byte_buffer& operator=(byte_buffer&&) noexcept = default;
 
@@ -154,7 +154,7 @@ JMAN_NO_DISCARD T jman::byte_buffer<S>::read(std::size_t byte) const noexcept
 {
     assert(m_read + sizeof(T) < capacity());
 
-    return *reinterpret_cast<T*>(&m_buffer[byte]);
+    return *reinterpret_cast<T*>(const_cast<std::byte*>(&m_buffer[byte]));
 }
 template <std::size_t S>
 template <std::floating_point T>
@@ -162,7 +162,7 @@ JMAN_NO_DISCARD T jman::byte_buffer<S>::read(std::size_t byte) const noexcept
 {
     assert(m_read + sizeof(T) < capacity());
 
-    return *reinterpret_cast<T*>(&m_buffer[byte]);
+    return *reinterpret_cast<T*>(const_cast<std::byte*>(&m_buffer[byte]));
 }
 
 // #################################################################################################
@@ -175,7 +175,7 @@ void jman::byte_buffer<S>::write_string(std::string_view str) noexcept
     std::size_t size = str.size();
     assert(m_write + size < capacity());
 
-    std::strncpy(*reinterpret_cast<char*>(&m_buffer[m_write]), str.data(), size);
+    std::strncpy(reinterpret_cast<char*>(&m_buffer[m_write]), str.data(), size);
     m_write += size;
 }
 template <std::size_t S>
@@ -193,12 +193,12 @@ void jman::byte_buffer<S>::write_string(std::size_t byte, std::string_view str) 
     std::size_t size = str.size();
     assert(byte + size < capacity());
 
-    std::strncpy(*reinterpret_cast<char*>(&m_buffer[byte]), str.data(), size);
+    std::strncpy(reinterpret_cast<char*>(&m_buffer[byte]), str.data(), size);
 }
 template <std::size_t S>
 JMAN_NO_DISCARD std::string_view jman::byte_buffer<S>::read_string(std::size_t byte, std::size_t size) const noexcept
 {
     assert(byte + size < capacity());
-    std::string_view str {reinterpret_cast<char*>(&m_buffer[m_write]), size};
+    std::string_view str {reinterpret_cast<char*>(const_cast<std::byte*>(&m_buffer[byte])), size};
     return str;
 }

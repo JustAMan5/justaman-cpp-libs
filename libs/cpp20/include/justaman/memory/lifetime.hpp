@@ -72,7 +72,7 @@ namespace jman
     template <class T>
     JMAN_NO_DISCARD JMAN_FORCE_INLINE T* addressof(T& x)
     {
-        #if defined(__has_builtin) && __has_builtin(__builtin_addressof)
+        #if defined (__has_builtin) && __has_builtin(__builtin_addressof)
             return __builtin_addressof(x);
         #else
             return reinterpret_cast<T*>(

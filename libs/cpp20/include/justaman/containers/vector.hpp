@@ -26,8 +26,12 @@ namespace jman
             
     */
     template <typename T, std::unsigned_integral S = std::size_t>
+
     class vector 
     {
+        static_assert(!std::is_reference_v<T>);
+        static_assert(!std::is_void_v<T>);
+        
         public: 
             // for std:: methods to work (it also needs allocator_type but since i use defaut malloc and most dont neeed it so yea)
             using value_type = T;
@@ -48,7 +52,7 @@ namespace jman
             size_type m_size = 0;
 
         private:
-            void grow(size_type increase = 1) 
+            void __grow(size_type increase = 1) 
             {
                 if (m_size + increase <= m_capacity) return;
 
@@ -57,7 +61,7 @@ namespace jman
                 if JMAN_UNLIKELY(newCapacity < 16) newCapacity = 16;
 
                 if JMAN_UNLIKELY(!jman::is_safe_mul(sizeof(T), newCapacity)) 
-                    throw std::overflow_error("jman::vector<T>::grow() failed: calculated capacity overflows the size_type specified.");
+                    throw std::overflow_error("jman::vector<T>::__grow() failed: calculated capacity overflows the size_type specified.");
 
                 T* ptr = reinterpret_cast<T*>(::operator new(sizeof(T) * newCapacity, std::align_val_t{alignof(T)}));
                 
@@ -672,7 +676,7 @@ template <typename T, std::unsigned_integral S>
 template <typename ...Args>
 void jman::vector<T, S>::emplace_back(Args&&... args)
 {
-    grow();
+    __grow();
     jman::construct_at<T>(m_buffer + m_size, std::forward<Args>(args)...);
     ++m_size;
 }
@@ -681,7 +685,7 @@ template <typename TT>
 requires std::is_convertible_v<TT, T>
 void jman::vector<T, S>::push_back(TT&& value)
 {
-    grow();
+    __grow();
     jman::construct_at<T>(m_buffer + m_size, static_cast<T>(std::forward<TT>(value)));
     ++m_size;
 }
@@ -724,7 +728,7 @@ requires std::is_convertible_v<TT, T>
 void jman::vector<T, S>::insert(size_type index, TT&& value)
 {
     if (index >= m_size) throw std::out_of_range("jman::vector<T>::insert() failed: Index out of range.");
-    grow();
+    __grow();
 
     if constexpr (std::is_nothrow_move_assignable_v<T> || std::is_nothrow_copy_assignable_v<T>) {
         for (size_type i = m_size; i > index; --i)
@@ -754,7 +758,7 @@ template <typename ...Args>
 void jman::vector<T, S>::emplace(size_type index, Args&&... args)
 {
     if (index >= m_size || index < 0) throw std::out_of_range("jman::vector<T>::emplace() failed: Index out of range.");
-    grow();
+    __grow();
 
     if constexpr (std::is_nothrow_move_assignable_v<T> || std::is_nothrow_copy_assignable_v<T>) {
         for (size_type i = m_size; i > index; --i)

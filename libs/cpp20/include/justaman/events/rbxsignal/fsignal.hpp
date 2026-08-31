@@ -29,11 +29,11 @@ namespace jman
         static constexpr std::uint64_t ALIVE_FLAG_BIT = 1ULL << 63;
         static constexpr std::uint64_t ONCE_FLAG_BIT = 1ULL << 62;
 
-        using Callback = void(*)(Args...);
+        using callback = void(*)(Args...);
         
         struct slot // 16 bytes
         {
-            Callback callback;
+            callback callback;
             std::uint64_t packed; // bottom 32 bits r the generation, the 64th bit is for alive, the 63th for the once flag
         };
 
@@ -44,18 +44,18 @@ namespace jman
         std::shared_ptr<signal_lifetime> m_lifetime; // cool fix for when the connection lives longer than the signal
 
         private: 
-            JMAN_FORCE_INLINE static bool alive_flag(slot slot) noexcept 
+            JMAN_FORCE_INLINE static bool __alive_flag(slot slot) noexcept 
                 { return (slot.packed & ALIVE_FLAG_BIT) != 0; }
-            JMAN_FORCE_INLINE static bool once_flag(slot slot) noexcept 
+            JMAN_FORCE_INLINE static bool __once_flag(slot slot) noexcept 
                 { return (slot.packed & ONCE_FLAG_BIT) != 0; }
-            JMAN_FORCE_INLINE static std::uint32_t gen_flag(slot slot) noexcept 
+            JMAN_FORCE_INLINE static std::uint32_t __gen_flag(slot slot) noexcept 
                 { return static_cast<std::uint32_t>(slot.packed & 0xFFFFFFFF); }
 
-            JMAN_FORCE_INLINE static void set_alive_flag(slot& slot, bool value) noexcept 
+            JMAN_FORCE_INLINE static void __set_alive_flag(slot& slot, bool value) noexcept 
                 { slot.packed = value ? (slot.packed | ALIVE_FLAG_BIT) : (slot.packed & ~ALIVE_FLAG_BIT);; }
-            JMAN_FORCE_INLINE static void set_once_flag(slot& slot, bool value) noexcept 
+            JMAN_FORCE_INLINE static void __set_once_flag(slot& slot, bool value) noexcept 
                 { slot.packed = value ? (slot.packed | ONCE_FLAG_BIT) : (slot.packed & ~ONCE_FLAG_BIT);; }
-            JMAN_FORCE_INLINE static void set_gen_flag(slot& slot, std::uint32_t value) noexcept 
+            JMAN_FORCE_INLINE static void __set_gen_flag(slot& slot, std::uint32_t value) noexcept 
                 { slot.packed = (slot.packed & 0xFFFFFFFF00000000ULL) | static_cast<std::uint64_t>(value); }
             void unchecked_disconnect_slot(std::size_t index);
             
@@ -121,10 +121,10 @@ namespace jman
                                         // returns the internal size of the m_slots vector
                                         // to get the free list size just do internal_sizs() - connections()
 
-            connection connect(Callback callback);
-            connection once(Callback callback);
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE scoped_connection scoped_connect(Callback callback) { return {connect(callback)}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE scoped_connection scoped_once(Callback callback) { return {once(callback)}; }
+            connection connect(callback callback);
+            connection once(callback callback);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE scoped_connection scoped_connect(callback callback) { return {connect(callback)}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE scoped_connection scoped_once(callback callback) { return {once(callback)}; }
 
             template <typename ...T>
             requires (std::convertible_to<T, Args> && ...)
@@ -157,8 +157,8 @@ JMAN_NO_DISCARD bool jman::fsignal<Args...>::connection::connected() const noexc
             
     return signal && 
             m_index < m_signal->m_slots.size() && 
-            alive_flag(sl) && 
-            gen_flag(sl) == m_generation;
+            __alive_flag(sl) && 
+            __gen_flag(sl) == m_generation;
 }
 
 template <typename ...Args>
@@ -169,9 +169,9 @@ JMAN_NO_DISCARD bool jman::fsignal<Args...>::connection::once() const noexcept
             
     return signal && 
             m_index < m_signal->m_slots.size() && 
-            alive_flag(sl) && 
-            gen_flag(sl) == m_generation;
-            once_flag(sl);
+            __alive_flag(sl) && 
+            __gen_flag(sl) == m_generation;
+            __once_flag(sl);
 }
 
 
@@ -184,8 +184,8 @@ void jman::fsignal<Args...>::unchecked_disconnect_slot(std::size_t index)
 {
     slot& sl = m_slots[index];
 
-    set_alive_flag(sl, false);
-    set_once_flag(sl, false);
+    __set_alive_flag(sl, false);
+    __set_once_flag(sl, false);
     sl.callback = nullptr; 
 
     m_freeList.push_back(index);
@@ -199,7 +199,7 @@ void jman::fsignal<Args...>::unchecked_disconnect_slot(std::size_t index)
 template <typename ...Args>
 jman::fsignal<Args...>::~fsignal() noexcept {
     for (slot& sl: m_slots)
-        set_alive_flag(sl, false);
+        __set_alive_flag(sl, false);
 }
 
 template <typename ...Args>
@@ -229,53 +229,53 @@ jman::fsignal<Args...>& jman::fsignal<Args...>::operator=(fsignal&& other) noexc
 
 template <typename ...Args>
 jman::fsignal<Args...>::connection 
-    jman::fsignal<Args...>::connect(jman::fsignal<Args...>::Callback callback) {
+    jman::fsignal<Args...>::connect(jman::fsignal<Args...>::callback callback) {
 
     std::size_t index;
     if (!m_freeList.empty()) {
         index = m_freeList.back();
         m_freeList.pop_back();
-        set_gen_flag(m_slots[index], gen_flag(m_slots[index]) + 1);
+        __set_gen_flag(m_slots[index], gen_flag(m_slots[index]) + 1);
     } else {
         index = m_slots.size();
         m_slots.emplace_back();
     }
     
     m_slots[index].callback = std::move(callback);
-    set_alive_flag(m_slots[index], true);
-    set_once_flag(m_slots[index], false); // just in case
+    __set_alive_flag(m_slots[index], true);
+    __set_once_flag(m_slots[index], false); // just in case
 
     return { 
         m_lifetime, 
         this, 
         index, 
-        gen_flag(m_slots[index])
+        __gen_flag(m_slots[index])
     };
 }
 
 template <typename ...Args>
 jman::fsignal<Args...>::connection 
-    jman::fsignal<Args...>::once(jman::fsignal<Args...>::Callback callback) {
+    jman::fsignal<Args...>::once(jman::fsignal<Args...>::callback callback) {
 
     std::size_t index;
     if (!m_freeList.empty()) {
         index = m_freeList.back();
         m_freeList.pop_back();
-        set_gen_flag(m_slots[index], gen_flag(m_slots[index]) + 1);
+        __set_gen_flag(m_slots[index], gen_flag(m_slots[index]) + 1);
     } else {
         index = m_slots.size();
         m_slots.emplace_back();
     }
     
     m_slots[index].callback = std::move(callback);
-    set_alive_flag(m_slots[index], true);
-    set_once_flag(m_slots[index], true);
+    __set_alive_flag(m_slots[index], true);
+    __set_once_flag(m_slots[index], true);
 
     return { 
         m_lifetime, 
         this, 
         index, 
-        gen_flag(m_slots[index])
+        __gen_flag(m_slots[index])
     };
 }
 
@@ -289,7 +289,7 @@ void jman::fsignal<Args...>::fire(T&&... args)
 
         if (alive_flag(sl)) {
             sl.callback(static_cast<Args>(args)...); // sadly we cant forward them, we must copy
-            if (once_flag(sl)) unchecked_disconnect_slot(i);
+            if (__once_flag(sl)) unchecked_disconnect_slot(i);
         }
     }
 }
@@ -298,7 +298,7 @@ template <typename ...Args>
 void jman::fsignal<Args...>::disconnect_all() 
 {
     for (std::size_t i = 0; i < m_slots.size(); ++i) {
-        if (alive_flag(m_slots[i]))
+        if (__alive_flag(m_slots[i]))
             unchecked_disconnect_slot(i);
     }
 }
