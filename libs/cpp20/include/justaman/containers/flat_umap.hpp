@@ -2,16 +2,14 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <stdexcept> // heavy header
+#include <stdexcept>
 #include <justaman/containers/vector.hpp>
 #include <justaman/cryptography/hashing.hpp>
 #include <justaman/memory/lifetime.hpp>
 #include <justaman/utils/attributes.h>
 
-
 namespace jman 
 {
-
     /**
         @brief: 
             simple flat hash map with robin hood hasing and without SIMD instructions, use Google's impl for more complex and fast results
@@ -31,9 +29,12 @@ namespace jman
             \n
             this is just "let the poor steal from the rich to stay equal", so when an inserting point has a psl (probe sequence length / ideal hash pos distance from current)
             higher than the current index, we swap them, and keep going until we actually reach the a dead spot
+
+
+        @todo: ADD MORE DYNAMIC, CLEAN CODE +  ADD EXTRACT() METHOD LIKE std::unordered_map, ADD BETTER TYPES FOR RANGES 
+                AND ACTUALLY USE STD::EQUAL_TO<K> AND ADD IT ON THE TEMPLATE AND MAKE CUSTOM HASH TO AVOID USING THE STANDARD VERSION
     */
     template <typename K, typename V, class Hash = std::hash<K>>
-
     class flat_umap 
     {
         static_assert(!std::is_reference_v<K> && !std::is_reference_v<V>);
@@ -260,8 +261,14 @@ namespace jman
                     operator const_iterator() const noexcept { return {m_map, m_index}; };
             };
 
+            struct node_type 
+            {
+
+            };
+
             flat_umap() = default;
-            explicit flat_umap(std::initializer_list<std::pair<K, V>> list);
+            flat_umap(std::initializer_list<std::pair<K, V>> list);
+            explicit flat_umap(std::size_t capacity);
             
             flat_umap(const flat_umap& other);
             flat_umap& operator=(const flat_umap& other);
@@ -275,6 +282,8 @@ namespace jman
             
             JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type      capacity() const noexcept { return m_capacity; }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type      size() const noexcept { return m_size; }
+            /** @warning: this method is just an aproximation */
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type      max_size() const noexcept { return std::numeric_limits<size_type>::max() / sizeof(slot); }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE bool           empty() const noexcept { return m_size == 0; }
 
             JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator       begin() noexcept { return iterator{this, 0}; }
@@ -298,7 +307,9 @@ namespace jman
             // -------------- HASHING ----------------//
 
             JMAN_NO_DISCARD JMAN_FORCE_INLINE float        load_factor() const noexcept { return m_size / static_cast<float>(m_capacity); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE float        max_load_factor() const noexcept { return 0.8f; }
             void                                           rehash(size_type count);
+            void                                           reserve(size_type count);
 
             // -------------- MODIFIERS ----------------//
 
@@ -453,6 +464,12 @@ jman::flat_umap<K, V, Hash>::flat_umap(std::initializer_list<std::pair<K, V>> li
         unchecked_assign(key, value);
 }
 
+template <typename K, typename V, class Hash>
+jman::flat_umap<K, V, Hash>::flat_umap(size_type capacity)
+{
+    m_slots.resize(std::max(capacity, MINIMUM_CAPACITY));
+    m_ctrl.resize(std::max(capacity, MINIMUM_CAPACITY));
+}
 
 
 template <typename K, typename V, class Hash>
@@ -815,6 +832,13 @@ void jman::flat_umap<K, V, Hash>::rehash(std::size_t count)
             destroy_slot(slot); // truncate and destroy old object
         }
     }
+}
+
+template <typename K, typename V, class Hash>
+void jman::flat_umap<K, V, Hash>::reserve(std::size_t count)
+{
+    if (count <= m_capacity) return;
+    rehash(count);
 }
 
 // ##################################################################################################

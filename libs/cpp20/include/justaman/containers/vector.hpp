@@ -24,10 +24,13 @@ namespace jman
             This class checks in compile time if moving, copying constructing an element is marked as noexcept, if so, operations will run normally.
             If not, operations will run in a try catch block, when an exception is catched, it will try to undo the operations and rethrow the exception to the caller
             
+
+
+            
+        @todo: CLEAN CODE???
     */
     template <typename T, std::unsigned_integral S = std::size_t>
-
-    class vector 
+    class vector  
     {
         static_assert(!std::is_reference_v<T>);
         static_assert(!std::is_void_v<T>);
@@ -42,13 +45,13 @@ namespace jman
             using pointer = T*;
             using const_pointer = const T*;
 
-            constexpr static size_type DEFAULT_CAPACITY = 0;
+            constexpr static size_type MIN_CAPACITY = 16;
             constexpr static size_type GROW_FACTOR = 2;
 
         private:
             T* m_buffer = nullptr;
 
-            size_type m_capacity = DEFAULT_CAPACITY;
+            size_type m_capacity = 0;
             size_type m_size = 0;
 
         private:
@@ -58,7 +61,7 @@ namespace jman
 
                 size_type required = m_size + increase;
                 size_type newCapacity = jman::max(m_capacity * GROW_FACTOR, required);
-                if JMAN_UNLIKELY(newCapacity < 16) newCapacity = 16;
+                if JMAN_UNLIKELY(newCapacity < MIN_CAPACITY) newCapacity = MIN_CAPACITY;
 
                 if JMAN_UNLIKELY(!jman::is_safe_mul(sizeof(T), newCapacity)) 
                     throw std::overflow_error("jman::vector<T>::__grow() failed: calculated capacity overflows the size_type specified.");
@@ -179,10 +182,11 @@ namespace jman
 
                     operator const_iterator() const { return {m_ptr}; };
             };
-            
 
-            constexpr vector();
-            explicit vector(std::initializer_list<T> list);
+            vector() noexcept = default;
+            vector(std::initializer_list<T> list);
+            explicit vector(size_type size);
+            vector(size_type size, const T& value);
 
             vector(const vector& other);
             vector& operator=(const vector& other);
@@ -264,18 +268,12 @@ namespace jman
 // -------------------------------------------- CONSTRUCTORS / DESTRUCTORS ------------------------------------------//
 // #####################################################################################################################
 
-
-template <typename T, std::unsigned_integral S>
-constexpr jman::vector<T, S>::vector()
-{
-    if (DEFAULT_CAPACITY > 0)
-        m_buffer = reinterpret_cast<T*>(::operator new(sizeof(T) * DEFAULT_CAPACITY, std::align_val_t{alignof(T)}));
-}
-
 template <typename T, std::unsigned_integral S>
 jman::vector<T, S>::vector(std::initializer_list<T> list)
-{
-    m_capacity = static_cast<size_type>(list.size());
+{   
+    if (list.size() <= 0) return;
+
+    m_capacity = jman::max(static_cast<size_type>(list.size()), MIN_CAPACITY);
     m_buffer = reinterpret_cast<T*>(::operator new(sizeof(T) * m_capacity, std::align_val_t{alignof(T)}));
 
     if constexpr (std::is_nothrow_copy_constructible_v<T>) {
@@ -286,6 +284,68 @@ jman::vector<T, S>::vector(std::initializer_list<T> list)
     } else {
         try {
             for (const T& value: list) {
+                jman::construct_at<T>(m_buffer + m_size, value);
+                ++m_size;
+            }
+        } catch (...) {
+            jman::destruct_at(m_size, m_buffer);
+            ::operator delete(m_buffer, std::align_val_t{alignof(T)});
+
+            m_buffer = nullptr;
+            m_capacity = m_size = 0;
+
+            throw;
+        }
+    }
+}
+
+template <typename T, std::unsigned_integral S>
+jman::vector<T, S>::vector(size_type size)
+{
+    if (size <= 0) return;
+
+    m_capacity = jman::max(static_cast<size_type>(size), MIN_CAPACITY);
+    m_buffer = reinterpret_cast<T*>(::operator new(sizeof(T) * m_capacity, std::align_val_t{alignof(T)}));
+
+    if constexpr (std::is_nothrow_copy_constructible_v<T>) {
+        for (size_type i = 0; i < size; ++i) {
+            jman::construct_at<T>(m_buffer + m_size);
+            ++m_size;
+        }
+    } else {
+        try {
+            for (size_type i = 0; i < size; ++i) {
+                jman::construct_at<T>(m_buffer + m_size);
+                ++m_size;
+            }
+        } catch (...) {
+            jman::destruct_at(m_size, m_buffer);
+            ::operator delete(m_buffer, std::align_val_t{alignof(T)});
+
+            m_buffer = nullptr;
+            m_capacity = m_size = 0;
+
+            throw;
+        }
+    }
+}
+
+template <typename T, std::unsigned_integral S>
+jman::vector<T, S>::vector(size_type size, const T& value)
+{
+    if (size <= 0) return;
+
+    m_capacity = jman::max(static_cast<size_type>(size), MIN_CAPACITY);
+    m_buffer = reinterpret_cast<T*>(::operator new(sizeof(T) * m_capacity, std::align_val_t{alignof(T)}));
+
+    if constexpr (std::is_nothrow_copy_constructible_v<T>) {
+        for (size_type i = 0; i < size; ++i) {
+            jman::construct_at<T>(m_buffer + m_size, value);
+            ++m_size;
+        }
+    } else {
+        try {
+            for (size_type i = 0; i < size; ++i) {
                 jman::construct_at<T>(m_buffer + m_size, value);
                 ++m_size;
             }
