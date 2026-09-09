@@ -37,11 +37,11 @@ namespace jman
             byte_buffer(byte_buffer&&) noexcept = default;
             byte_buffer& operator=(byte_buffer&&) noexcept = default;
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t capacity() const noexcept { return S; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t size() const noexcept { return m_read; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t readable_bytes() const noexcept { return m_write - m_read; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::span<std::byte> view() const noexcept { return {&m_buffer, S}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::array<std::byte, S> get() const noexcept { return {&m_buffer, S}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t               capacity() const noexcept { return S; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t               size() const noexcept { return m_read; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t               readable_bytes() const noexcept { return m_write - m_read; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::span<std::byte>      view() const noexcept { return {&m_buffer, S}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::array<std::byte, S>  get() const noexcept { return {&m_buffer, S}; }
 
             JMAN_FORCE_INLINE void set_read(std::size_t byte) noexcept {
                 assert(byte >= capacity() && "jman::byte_buffer<S>::set_read() failed: byte param out of bounds.");
@@ -51,35 +51,35 @@ namespace jman
                 assert(byte >= capacity() && "jman::byte_buffer<S>::set_write() failed: byte param out of bounds.");
                 m_write = byte;
             }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE  std::size_t get_read() const noexcept { return m_read; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE  std::size_t get_write() const noexcept { return m_write; }
-            JMAN_FORCE_INLINE void reset_indices() noexcept { m_read = m_write = 0; }
-            JMAN_FORCE_INLINE void reset_buffer() noexcept {reset_indices(); m_buffer = {}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t               get_read() const noexcept { return m_read; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t               get_write() const noexcept { return m_write; }
+            JMAN_FORCE_INLINE void                                      reset_indices() noexcept { m_read = m_write = 0; }
+            JMAN_FORCE_INLINE void                                      reset_buffer() noexcept {reset_indices(); m_buffer = {}; }
 
             template <std::integral T>
-            void write(T value) noexcept;
+            void                                        write(T value) noexcept;
             template <std::floating_point T>
-            void write(T value) noexcept;
+            void                                        write(T value) noexcept;
             template <std::integral T>
-            void write(std::size_t byte, T value) noexcept;
+            void                                        write(std::size_t byte, T value) noexcept;
             template <std::floating_point T>
-            void write(std::size_t byte, T value) noexcept;
+            void                                        write(std::size_t byte, T value) noexcept;
 
             
             template <std::integral T>
-            JMAN_NO_DISCARD T read() noexcept;
+            JMAN_NO_DISCARD T                           read() noexcept;
             template <std::floating_point T>
-            JMAN_NO_DISCARD T read() noexcept;
+            JMAN_NO_DISCARD T                           read() noexcept;
             template <std::integral T>
-            JMAN_NO_DISCARD T read(std::size_t byte) const noexcept;
+            JMAN_NO_DISCARD T                           read(std::size_t byte) const noexcept;
             template <std::floating_point T>
-            JMAN_NO_DISCARD T read(std::size_t byte) const noexcept;
+            JMAN_NO_DISCARD T                           read(std::size_t byte) const noexcept;
             
             void write_string(std::string_view) noexcept;
-            JMAN_NO_DISCARD std::string_view read_string(std::size_t size) noexcept;
+            JMAN_NO_DISCARD std::string_view            read_string(std::size_t size) noexcept;
 
             void write_string(std::size_t byte, std::string_view) noexcept;
-            JMAN_NO_DISCARD std::string_view read_string(std::size_t byte, std::size_t size) const noexcept;
+            JMAN_NO_DISCARD std::string_view            read_string(std::size_t byte, std::size_t size) const noexcept;
     };
 }
 

@@ -11,6 +11,9 @@
 namespace jman 
 {
     /**
+        @deprecated:
+            this class is not very safe and its pending for renovation in the future
+
         @brief: 
             simple flat hash map with robin hood hasing and without SIMD instructions, use Google's impl for more complex and fast results
         Iterators:
@@ -35,7 +38,7 @@ namespace jman
                 AND ACTUALLY USE STD::EQUAL_TO<K> AND ADD IT ON THE TEMPLATE AND MAKE CUSTOM HASH TO AVOID USING THE STANDARD VERSION
     */
     template <typename K, typename V, class Hash = std::hash<K>>
-    class flat_umap 
+    class JMAN_DEPRECATED flat_umap 
     {
         static_assert(!std::is_reference_v<K> && !std::is_reference_v<V>);
         static_assert(!std::is_void_v<K> && !std::is_void_v<V>);

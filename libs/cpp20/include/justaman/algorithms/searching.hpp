@@ -33,7 +33,7 @@ namespace jman
     template <typename InputIt, class Pred>
     requires std::input_iterator<InputIt> && 
             std::is_invocable_r_v<bool, Pred, const typename std::iterator_traits<InputIt>::value_type&>
-    bool all_of(InputIt first, InputIt last, Pred pred);
+    constexpr bool all_of(InputIt first, InputIt last, Pred pred);
 
 
 
@@ -102,7 +102,7 @@ constexpr bool jman::any_of(InputIt first, InputIt last, Pred pred)
 template <typename InputIt, class Pred>
 requires std::input_iterator<InputIt> && 
         std::is_invocable_r_v<bool, Pred, const typename std::iterator_traits<InputIt>::value_type&>
-bool jman::all_of(InputIt first, InputIt last, Pred pred)
+constexpr bool jman::all_of(InputIt first, InputIt last, Pred pred)
 {
     for (; first != last; ++first)
         if (!pred(*first))

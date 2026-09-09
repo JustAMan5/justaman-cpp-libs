@@ -33,15 +33,15 @@ namespace jman
         
         struct slot // 16 bytes
         {
-            callback callback;
-            std::uint64_t packed; // bottom 32 bits r the generation, the 64th bit is for alive, the 63th for the once flag
+            callback        callback;
+            std::uint64_t   packed; // bottom 32 bits r the generation, the 64th bit is for alive, the 63th for the once flag
         };
 
-        jman::vector<slot> m_slots;
-        jman::vector<std::size_t> m_freeList;
+        jman::vector<slot>                  m_slots;
+        jman::vector<std::size_t>           m_freeList;
 
         struct signal_lifetime {};
-        std::shared_ptr<signal_lifetime> m_lifetime; // cool fix for when the connection lives longer than the signal
+        std::shared_ptr<signal_lifetime>    m_lifetime; // cool fix for when the connection lives longer than the signal
 
         private: 
             JMAN_FORCE_INLINE static bool __alive_flag(slot slot) noexcept 
@@ -74,9 +74,9 @@ namespace jman
                 connection(connection&& other) = default;
                 connection& operator=(connection&& other) = default;
                 
-                JMAN_NO_DISCARD bool connected() const noexcept;
-                JMAN_NO_DISCARD bool once() const noexcept;
-                void disconnect();
+                JMAN_NO_DISCARD bool    connected() const noexcept;
+                JMAN_NO_DISCARD bool    once() const noexcept;
+                void                    disconnect();
                 
                 private:
                     friend class fsignal<Args...>;
@@ -84,10 +84,10 @@ namespace jman
                     connection(std::shared_ptr<signal_lifetime>& l, fsignal* s, std::size_t i, std::uint32_t g)
                         :m_signal_lifetime(l), m_signal(s), m_index(i), m_generation(g) {}
 
-                    std::weak_ptr<signal_lifetime> m_signal_lifetime;
-                    fsignal* m_signal;
-                    std::size_t m_index;
-                    std::uint32_t m_generation;
+                    std::weak_ptr<signal_lifetime>      m_signal_lifetime;
+                    fsignal*                            m_signal;
+                    std::size_t                         m_index;
+                    std::uint32_t                       m_generation;
             };
 
             class scoped_connection {
@@ -116,21 +116,21 @@ namespace jman
             fsignal(fsignal&& other) noexcept;
             fsignal& operator=(fsignal&& other) noexcept;
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t connections() const noexcept { return m_slots.size() - m_freeList.size(); }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t internal_size() const noexcept { return m_slots.size(); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t   connections() const noexcept { return m_slots.size() - m_freeList.size(); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t   internal_size() const noexcept { return m_slots.size(); }
                                         // returns the internal size of the m_slots vector
                                         // to get the free list size just do internal_sizs() - connections()
 
-            connection connect(callback callback);
-            connection once(callback callback);
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE scoped_connection scoped_connect(callback callback) { return {connect(callback)}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE scoped_connection scoped_once(callback callback) { return {once(callback)}; }
+            connection                                              connect(callback callback);
+            connection                                              once(callback callback);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE scoped_connection     scoped_connect(callback callback) { return {connect(callback)}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE scoped_connection     scoped_once(callback callback) { return {once(callback)}; }
 
             template <typename ...T>
             requires (std::convertible_to<T, Args> && ...)
-            void fire(T&&...);
-            void disconnect_all();
-            JMAN_FORCE_INLINE void reserve_internal(std::size_t count);
+            void                                            fire(T&&...);
+            void                                            disconnect_all();
+            JMAN_FORCE_INLINE void                          reserve_internal(std::size_t count);
     };
 
 }

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <utility>
 
 // idk what this shit does i just know its for calling any type of func depending on what is it
@@ -22,6 +24,10 @@ namespace jman
         }
     } // namespace __detail
 
+    /**
+        @brief
+            same functionallity as regular std::invoke that invokes any type of callable object
+    */
     template <typename F, typename... Args>
     auto invoke(F&& f, Args&&... args) 
         -> decltype(__detail::__invoke_impl(std::forward<F>(f), std::forward<Args>(args)...)) 

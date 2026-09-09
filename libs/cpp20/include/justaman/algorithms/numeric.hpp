@@ -2,7 +2,7 @@
 
 #include "justaman/utils/attributes.h"
 #if !(defined (__has_builtin) && __has_builtin(__builtin_mul_overflow))
-#include <limits>
+    #include <limits> // for is_safe_mul
 #endif
 
 namespace jman

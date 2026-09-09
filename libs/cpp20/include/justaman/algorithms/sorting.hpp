@@ -184,13 +184,11 @@ namespace jman
     template <typename RandomAccessIterator, typename Compare>
     requires std::random_access_iterator<RandomAccessIterator> && 
              std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-    void msort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-        noexcept(is_nothrow_sortable_comp<RandomAccessIterator, Compare>);
+    void msort(RandomAccessIterator start, RandomAccessIterator end, Compare comp); // no noexcept since it needs to allocate space for the temp vector for the copies
 
     template <typename RandomAccessIterator>
     requires std::random_access_iterator<RandomAccessIterator>
-    JMAN_FORCE_INLINE void msort(RandomAccessIterator start, RandomAccessIterator end)
-        noexcept(is_nothrow_sortable<RandomAccessIterator>);
+    JMAN_FORCE_INLINE void msort(RandomAccessIterator start, RandomAccessIterator end);
     ///@}
     /**
         @brief 
@@ -362,7 +360,6 @@ template <typename RandomAccessIterator, typename Compare>
 requires std::random_access_iterator<RandomAccessIterator> && 
          std::indirect_strict_weak_order<Compare, RandomAccessIterator>
 void jman::msort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-    noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Compare>)
 {
     using T = std::iter_value_t<RandomAccessIterator>;
 
@@ -402,7 +399,6 @@ void jman::msort(RandomAccessIterator start, RandomAccessIterator end, Compare c
 template <typename RandomAccessIterator>
 requires std::random_access_iterator<RandomAccessIterator>
 JMAN_FORCE_INLINE void jman::msort(RandomAccessIterator first, RandomAccessIterator last)
-    noexcept(jman::is_nothrow_sortable<RandomAccessIterator>)
 {
     msort(first, last, std::less{});
 }

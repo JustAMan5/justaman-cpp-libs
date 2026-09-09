@@ -15,44 +15,44 @@ namespace jman
             random32();
             explicit random32(std::uint32_t seed);
 
-            void reseed(std::uint32_t seed = std::random_device()());
-            void discard(unsigned long long z);
+            void                                            reseed(std::uint32_t seed = std::random_device()());
+            void                                            discard(unsigned long long z);
 
-            JMAN_NO_DISCARD std::uint32_t min() const noexcept;
-            JMAN_NO_DISCARD std::uint32_t max() const noexcept;
-            JMAN_NO_DISCARD std::uint32_t raw_next();
+            JMAN_NO_DISCARD std::uint32_t                   min() const noexcept;
+            JMAN_NO_DISCARD std::uint32_t                   max() const noexcept;
+            JMAN_NO_DISCARD std::uint32_t                   raw_next();
 
-            bool chance(double probability = 0.5);
+            bool                                            chance(double probability = 0.5);
 
             template<std::integral T>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE T range(T min, T max);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE T             range(T min, T max);
 
             template<std::floating_point T = float>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE T range(T min, T max);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE T             range(T min, T max);
 
             template<std::integral T = int>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE T sign();
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE T             sign();
 
             template<std::floating_point T = float>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE T variation(T mean, T stddev);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE T             variation(T mean, T stddev);
 
             template<typename T>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& choice(const std::vector<T>& vec);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const T&      choice(const std::vector<T>& vec);
 
             template<typename T>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& choice(std::initializer_list<T> list);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const T&      choice(std::initializer_list<T> list);
 
             /** 
             * @note: internally it uses std::discrete_distribution, so there is a heap allocation internally for cache or smt idk, so watch out 
             */
             template<std::floating_point T = float>
-            JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE weighted_index(const std::vector<T>& weights);
+            JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE   weighted_index(const std::vector<T>& weights);
 
             /** 
             * @note: internally it uses std::discrete_distribution, so there is a heap allocation internally for cache or smt idk, so watch out 
             */
             template<std::floating_point T = float>
-            JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE weighted_index(std::initializer_list<T> weights);
+            JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE   weighted_index(std::initializer_list<T> weights);
     };  
 
     class random64

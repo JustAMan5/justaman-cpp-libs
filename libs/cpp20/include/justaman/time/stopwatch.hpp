@@ -11,9 +11,9 @@ namespace jman
         using clock    =                        std::chrono::steady_clock;
         using time_point =                      clock::time_point;
 
-        clock::time_point                       m_start = {};
+        clock::time_point                       m_start =       {};
         duration                                m_accumulated = duration::zero();
-        bool                                    m_running = false;
+        bool                                    m_running =     false;
 
         public:
             // CONSTRUCTOR

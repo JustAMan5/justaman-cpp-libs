@@ -8,6 +8,10 @@
 namespace jman 
 {
 
+    // #############################################################################################################
+    // ---------------------------------------------- CONSTRUCTING -----------------------------------------------//
+    // #############################################################################################################
+
     /**
         @brief 
             wrapper around regular placement-new
@@ -19,13 +23,18 @@ namespace jman
         return ::new(static_cast<void*>(ptr)) T{std::forward<Args>(args)...};
     }
 
+
+    // #############################################################################################################
+    // ---------------------------------------------- DESTRUCTING -----------------------------------------------//
+    // #############################################################################################################
+
     /**
         @brief 
             wrapper around regualar destructor call. Doesn't call destructor if its trivial.
     */
     template <typename T>
-    constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr) // from c++11 and beyond destructors r marked noexcept as default
-        noexcept(std::is_nothrow_destructible_v<T>) 
+    constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr) // from c++11 and beyond destructors should be marked as noexcept, noexcept constructors used for containers is UB
+        noexcept(std::is_nothrow_destructible_v<T>)
     {
         if constexpr (!std::is_trivially_destructible_v<T>)
             ptr->~T();
@@ -38,8 +47,8 @@ namespace jman
         @param count: amount of objects to destroy
     */
     template <typename T>
-    constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr, std::ptrdiff_t count) // from c++11 and beyond destructors r marked noexcept as default
-        noexcept(std::is_nothrow_destructible_v<T>) 
+    constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr, std::ptrdiff_t count) // from c++11 and beyond destructors should be marked as noexcept, noexcept constructors used for containers is UB
+        noexcept(std::is_nothrow_destructible_v<T>)
     {
         if constexpr (std::is_trivially_destructible_v<T>)
             return;
@@ -55,22 +64,26 @@ namespace jman
         @param count: amount of objects to destroy
     */
     template <typename T>
-    constexpr JMAN_FORCE_INLINE void destruct_at(std::ptrdiff_t count, T* ptr) // from c++11 and beyond destructors r marked noexcept as default
-        noexcept(std::is_nothrow_destructible_v<T>) 
+    constexpr JMAN_FORCE_INLINE void destruct_at(std::ptrdiff_t count, T* ptr) // from c++11 and beyond destructors should be marked as noexcept, noexcept constructors used for containers is UB
+        noexcept(std::is_nothrow_destructible_v<T>)
     {
         if constexpr (std::is_trivially_destructible_v<T>)
             return;
 
-        for (std::ptrdiff_t i = count; i > 0; ++i)
-            (ptr - i - 1)->~T();
+        for (std::ptrdiff_t i = count; i > 0; --i)
+            (ptr + i - 1)->~T();
     }
+
+    // #############################################################################################################
+    // --------------------------------------------- TYPES ADDRESS -----------------------------------------------//
+    // #############################################################################################################
 
     /**
         @brief 
             Grabs the real address of the specified object bypassing any overload for the & operator for that class
     */
     template <class T>
-    JMAN_NO_DISCARD JMAN_FORCE_INLINE T* addressof(T& x)
+    JMAN_NO_DISCARD constexpr JMAN_FORCE_INLINE T* addressof(T& x)
     {
         #if defined (__has_builtin) && __has_builtin(__builtin_addressof)
             return __builtin_addressof(x);
@@ -82,5 +95,7 @@ namespace jman
             ); // dirty little trick that compilers used to bypass it, seems that is just making the compiler thing the object are raw bytes
         #endif
     }
+
+
     
 }; // namespace jman

@@ -24,13 +24,13 @@ namespace jman
     class sparse_set 
     {
         public:
-            using value_type = V;
-            using size_type = K;
-            using difference_type = std::ptrdiff_t;
-            using reference = V&;
-            using const_reference = const V&;
-            using pointer = V*;
-            using const_pointer = const V*;
+            using value_type        = V;
+            using size_type         = K;
+            using difference_type   = std::ptrdiff_t;
+            using reference         = V&;
+            using const_reference   = const V&;
+            using pointer           = V*;
+            using const_pointer     = const V*;
 
             static constexpr size_type INVALID_INDEX { std::numeric_limits<size_type>::max() }; // invalid sparse & dense index
             static constexpr size_type PAGE_SIZE { PageSize }; 
@@ -39,19 +39,19 @@ namespace jman
 
             static_assert(
                 std::has_single_bit(PAGE_SIZE), 
-                "PageSize must be a power of two"
+                "PageSize template type must be a power of two"
             );  // make sure  PAGE_SIZE is single bit (true if power of 2)
             static_assert(
                 PAGE_SIZE <= std::numeric_limits<size_type>::max(), 
-                "PageSize cannot be larger than the maximum value of Key type K"
+                "PageSize template type cannot be larger than the maximum value of Key template type K"
             ); 
             // fix issue for when sparse indices could overflow cuz of size_type capacities ex. size_type uint8_t and PageSize is 512
 
         private:
-            jman::vector<std::array<size_type, PAGE_SIZE>> m_sparse_data {}; // holds the actual sparse data for pages
-            jman::vector<size_type> m_page_map {}; //translates page id -> real position in m_sparse_data
-            jman::vector<V> m_dense {}; // real values stored contigiously without any gaps
-            jman::vector<K> m_dense_keys {}; // m_dense but change values for keys, simple
+            jman::vector<std::array<size_type, PAGE_SIZE>>  m_sparse_data   {}; // holds the actual sparse data for pages
+            jman::vector<size_type>                         m_page_map      {}; //translates page id -> real position in m_sparse_data
+            jman::vector<V>                                 m_dense         {}; // real values stored contigiously without any gaps
+            jman::vector<K>                                 m_dense_keys    {}; // m_dense but change values for keys, simple
 
             struct sparse_location 
             {
@@ -59,14 +59,15 @@ namespace jman
                 size_type offset; // offset of the value in the page
             };
 
-            static JMAN_FORCE_INLINE size_type __page_index(K key) noexcept { return key >> L; }
-            static JMAN_FORCE_INLINE size_type __page_offset(K key) noexcept { return key & PAGE_MASK; }
+            static JMAN_FORCE_INLINE size_type  __page_index(K key) noexcept { return key >> L; }
+            static JMAN_FORCE_INLINE size_type  __page_offset(K key) noexcept { return key & PAGE_MASK; }
 
-            JMAN_FORCE_INLINE bool __page_exists(K key) const noexcept;
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE sparse_location __locate(K key) const noexcept;
+            JMAN_FORCE_INLINE bool              __page_exists(K key) const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE sparse_location
+                                                __locate(K key) const noexcept;
 
-            JMAN_FORCE_INLINE size_type __index_unchecked(K key) const noexcept;
-            void __ensure_sparse_size(K key) ;
+            JMAN_FORCE_INLINE size_type         __index_unchecked(K key) const noexcept;
+            void                                __ensure_sparse_size(K key) ;
 
         public:
             sparse_set() = default;
@@ -75,48 +76,48 @@ namespace jman
             sparse_set(const sparse_set&) = default;
             sparse_set& operator=(const sparse_set&) = default;
             
-            sparse_set(sparse_set&&) = default;
-            sparse_set& operator=(sparse_set&&) = default;
+            sparse_set(sparse_set&&) noexcept = default;
+            sparse_set& operator=(sparse_set&&) noexcept = default;
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool empty() const noexcept { return m_dense.empty(); }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type size() const noexcept { return m_dense.size(); }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type pages() const noexcept { return m_sparse_data.size(); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool                      empty() const noexcept { return m_dense.empty(); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type                 size() const noexcept { return m_dense.size(); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type                 pages() const noexcept { return m_sparse_data.size(); }
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE jman::vector<K>& keys() noexcept { return m_dense_keys; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE jman::vector<V>& values() noexcept { return m_dense; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const jman::vector<K>& keys() const noexcept { return m_dense_keys; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const jman::vector<V>& values() const noexcept { return m_dense; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE jman::vector<K>&          keys() noexcept { return m_dense_keys; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE jman::vector<V>&          values() noexcept { return m_dense; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const jman::vector<K>&    keys() const noexcept { return m_dense_keys; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const jman::vector<V>&    values() const noexcept { return m_dense; }
 
             // modifiers
-            void JMAN_FORCE_INLINE reserve_dense(K count) { m_dense_keys.reserve(count); m_dense.reserve(count); }
-            void JMAN_FORCE_INLINE reserve_pages(K count) { m_sparse_data.reserve(count); m_page_map.reserve(count); }
+            void JMAN_FORCE_INLINE                          reserve_dense(K count) { m_dense_keys.reserve(count); m_dense.reserve(count); }
+            void JMAN_FORCE_INLINE                          reserve_pages(K count) { m_sparse_data.reserve(count); m_page_map.reserve(count); }
 
-            void shrink_to_fit();
-            void clear() noexcept;
+            void                                            shrink_to_fit();
+            void                                            clear() noexcept;
 
             // elements
             template <typename T>
             requires std::convertible_to<T, V>
-            reference insert(K key, T&& value) noexcept;
+            reference                                       insert(K key, T&& value) noexcept;
             template <typename ...Args>
-            reference emplace(K key, Args&&... args) noexcept; 
+            reference                                       emplace(K key, Args&&... args) noexcept; 
             template <typename ...Args>
-            reference emplace_or_replace(K key, Args&&... args) noexcept;
+            reference                                       emplace_or_replace(K key, Args&&... args) noexcept;
             template <typename T>
             requires std::convertible_to<T, V>
-            reference replace(K key, T&& value) noexcept;
+            reference                                       replace(K key, T&& value) noexcept;
 
-            void erase(K key) noexcept;
+            void                                            erase(K key) noexcept;
 
             // searching
-            JMAN_NO_DISCARD reference get(K key);
-            JMAN_NO_DISCARD pointer find(K key) noexcept;
-            JMAN_NO_DISCARD const_reference get(K key) const;
-            JMAN_NO_DISCARD const_pointer find(K key) const noexcept;
+            JMAN_NO_DISCARD reference                       get(K key);
+            JMAN_NO_DISCARD pointer                         find(K key) noexcept;
+            JMAN_NO_DISCARD const_reference                 get(K key) const;
+            JMAN_NO_DISCARD const_pointer                   find(K key) const noexcept;
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool contains(K key) const noexcept;
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type dense_index(K entity) const noexcept;
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE K key_from_index(size_type index) const; // index reffers to the dense index>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool          contains(K key) const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type     dense_index(K entity) const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE K             key_from_index(size_type index) const; // index reffers to the dense index>
     };
 }
 
@@ -146,7 +147,6 @@ template <typename V, std::unsigned_integral K, std::size_t PageSize>
 JMAN_FORCE_INLINE bool jman::sparse_set<V, K, PageSize>::__page_exists(K key) const noexcept 
 {
     size_type page = __page_index(key);
-
     return page < m_page_map.size() && m_page_map[page] != INVALID_INDEX;
 }
 

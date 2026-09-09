@@ -44,15 +44,15 @@ namespace jman
         static_assert(!std::is_reference_v<T>);
         static_assert(!std::is_void_v<T>);
 
-        alignas(T) std::byte m_buffer[sizeof(T)] {};
-        bool m_initialized {false};
+        alignas(T) std::byte    m_buffer[sizeof(T)] {};
+        bool                    m_initialized       {false};
     
         private:
-            constexpr T* __ptr() noexcept { return std::launder(reinterpret_cast<T*>(m_buffer)); }
-            constexpr const T* __ptr() const noexcept { return std::launder(reinterpret_cast<const T*>(m_buffer)); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T*        __ptr() noexcept { return std::launder(reinterpret_cast<T*>(m_buffer)); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T*  __ptr() const noexcept { return std::launder(reinterpret_cast<const T*>(m_buffer)); }
 
-            constexpr T& __value() noexcept { return *std::launder(reinterpret_cast<T*>(m_buffer)); }
-            constexpr const T& __value() const noexcept { return *std::launder(reinterpret_cast<const T*>(m_buffer)); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&        __value() noexcept { return *std::launder(reinterpret_cast<T*>(m_buffer)); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&  __value() const noexcept { return *std::launder(reinterpret_cast<const T*>(m_buffer)); }
 
         public:
             constexpr lazy_value() noexcept = default;
@@ -68,55 +68,55 @@ namespace jman
             constexpr lazy_value(lazy_value&& other) noexcept;
             constexpr lazy_value& operator=(lazy_value&& other) noexcept;
             
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr bool initialized() noexcept { return m_initialized; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr explicit operator bool() noexcept { return m_initialized; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr bool                initialized() noexcept { return m_initialized; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr explicit operator   bool() noexcept { return m_initialized; }
 
-            constexpr T& get() noexcept(std::is_nothrow_default_constructible_v<T>); // default constructs
-            constexpr T& operator*() noexcept(std::is_nothrow_default_constructible_v<T>); // default constructs
-            constexpr T* operator->() noexcept(std::is_nothrow_default_constructible_v<T>); // default constructs
+            constexpr T&                            get() noexcept(std::is_nothrow_default_constructible_v<T>); // default constructs
+            constexpr T&                            operator*() noexcept(std::is_nothrow_default_constructible_v<T>); // default constructs
+            constexpr T*                            operator->() noexcept(std::is_nothrow_default_constructible_v<T>); // default constructs
 
 #if __cpp_lib_constexpr_exceptions >= 202502L
             constexpr
 #endif
-            const T& get() const; 
+            const T&                                get() const; 
 #if __cpp_lib_constexpr_exceptions >= 202502L
             constexpr
 #endif
-            const T& operator*() const;
+            const T&                                operator*() const;
 #if __cpp_lib_constexpr_exceptions >= 202502L
             constexpr
 #endif
-            const T* operator->() const;
+            const T*                                operator->() const;
 
             template <typename TT>
             requires std::is_convertible_v<TT, T>
-            constexpr const T& value_or(TT&& _default) const noexcept;
+            constexpr const T&                      value_or(TT&& _default) const noexcept;
 
             template <typename TT>
             requires std::is_convertible_v<TT, T>
-            constexpr T&& value_or(TT&& _default) noexcept;
+            constexpr T&&                           value_or(TT&& _default) noexcept;
 
-            constexpr void reset() noexcept;
+            constexpr void                          reset() noexcept;
             template <typename ...Args>
-            constexpr void emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...> && std::is_nothrow_destructible_v<T>);
+            constexpr void                          emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...> && std::is_nothrow_destructible_v<T>);
 
             template <typename F>
-            constexpr auto and_then(F&& f) &;
+            constexpr auto                          and_then(F&& f) &;
             template <typename F>
-            constexpr auto and_then(F&& f) const&;
+            constexpr auto                          and_then(F&& f) const&;
             template <typename F>
-            constexpr auto and_then(F&& f) &&;
+            constexpr auto                          and_then(F&& f) &&;
             template <typename F>
-            constexpr auto and_then(F&& f) const&&;
+            constexpr auto                          and_then(F&& f) const&&;
 
             template <typename F>
-            constexpr auto or_else(F&& f) &&;
+            constexpr auto                          or_else(F&& f) &&;
             template <typename F>
-            constexpr auto or_else(F&& f) const&;
+            constexpr auto                          or_else(F&& f) const&;
 
             template <typename T2>
             requires std::three_way_comparable_with<T, T2>
-            constexpr auto operator<=>(const T2& other) noexcept;
+            constexpr auto                          operator<=>(const T2& other) noexcept;
     };
 };
 
