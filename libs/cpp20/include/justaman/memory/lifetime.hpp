@@ -1,9 +1,8 @@
 #pragma once
 
-#include <cstddef>
-#include <type_traits>
-#include <utility>
 #include <justaman/utils/attributes.h>
+#include <cstddef>
+#include <utility>
 
 namespace jman 
 {
@@ -14,7 +13,7 @@ namespace jman
 
     /**
         @brief 
-            wrapper around regular placement-new
+            "wrapper around regular placement-new operator"
     */
     template <typename T, typename ...Args>
     constexpr JMAN_FORCE_INLINE T* construct_at(T* ptr, Args&&... args) // from c++11 and beyond constructors r marked noexcept as default
@@ -30,7 +29,7 @@ namespace jman
 
     /**
         @brief 
-            wrapper around regualar destructor call. Doesn't call destructor if its trivial.
+            "wrapper around regualar destructor call. Doesn't call destructor if its trivial."
     */
     template <typename T>
     constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr) // from c++11 and beyond destructors should be marked as noexcept, noexcept constructors used for containers is UB
@@ -42,9 +41,9 @@ namespace jman
 
     /**
         @brief 
-            Calls destructors (if non trivial) starting from [ptr] and ending at [ptr + @count - 1] moving forward
+            "Calls destructors (if non trivial) starting from [ptr] and ending at [ptr + @count - 1] moving forward"
         
-        @param count: amount of objects to destroy
+        @param count: "amount of objects to destroy, the type for count is std::ptrdiff_t"
     */
     template <typename T>
     constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr, std::ptrdiff_t count) // from c++11 and beyond destructors should be marked as noexcept, noexcept constructors used for containers is UB
@@ -59,9 +58,9 @@ namespace jman
 
     /**
         @brief 
-            Calls destructors (if non trivial) starting from [ptr + @count - 1] ending at [ptr] moving backwards
+            "Calls destructors (if non trivial) starting from [ptr + @count - 1] ending at [ptr] moving backwards"
         
-        @param count: amount of objects to destroy
+        @param count: "amount of objects to destroy, the type for count is std::ptrdiff_t"
     */
     template <typename T>
     constexpr JMAN_FORCE_INLINE void destruct_at(std::ptrdiff_t count, T* ptr) // from c++11 and beyond destructors should be marked as noexcept, noexcept constructors used for containers is UB
@@ -74,13 +73,47 @@ namespace jman
             (ptr + i - 1)->~T();
     }
 
+    /**
+        @brief 
+            "Calls destructors (if non trivial) starting from [ptr] and ending at [ptr + @count - 1] moving forward"
+        
+        @param count: "amount of objects to destroy, the type for count is std::size_t"
+    */
+    template <typename T>
+    constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr, std::size_t count) // from c++11 and beyond destructors should be marked as noexcept, noexcept constructors used for containers is UB
+        noexcept(std::is_nothrow_destructible_v<T>)
+    {
+        if constexpr (std::is_trivially_destructible_v<T>)
+            return;
+
+        for (std::size_t i = 0; i < count; ++i)
+            (ptr + i)->~T();
+    }
+
+    /**
+        @brief 
+            "Calls destructors (if non trivial) starting from [ptr + @count - 1] ending at [ptr] moving backwards"
+        
+        @param count: "amount of objects to destroy, the type for count is std::size_t"
+    */
+    template <typename T>
+    constexpr JMAN_FORCE_INLINE void destruct_at(std::size_t count, T* ptr) // from c++11 and beyond destructors should be marked as noexcept, noexcept constructors used for containers is UB
+        noexcept(std::is_nothrow_destructible_v<T>)
+    {
+        if constexpr (std::is_trivially_destructible_v<T>)
+            return;
+
+        for (std::size_t i = count; i > 0; --i)
+            (ptr + i - 1)->~T();
+    }
+
     // #############################################################################################################
     // --------------------------------------------- TYPES ADDRESS -----------------------------------------------//
     // #############################################################################################################
 
     /**
         @brief 
-            Grabs the real address of the specified object bypassing any overload for the & operator for that class
+            "Grabs the real address of the specified object bypassing any overload for the & operator for that class"
     */
     template <class T>
     JMAN_NO_DISCARD constexpr JMAN_FORCE_INLINE T* addressof(T& x)

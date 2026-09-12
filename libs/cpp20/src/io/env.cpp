@@ -12,14 +12,14 @@ namespace fs = std::filesystem;
 // ---------------------------------------- PRIVATE IMPL ----------------------------------------//
 // ################################################################################################
 
-struct jman::env_manager::__impl {
+struct jman::env_manager::impl {
     std::unordered_map<std::string, std::string>    data {};
-    fs::path                           m_loaded_path {};
+    fs::path                                        loaded_path {};
 
-    fs::path __find_env_upwards(const std::string& filename, int max_depth = 5) const;
+    fs::path find_env_upwards(const std::string& filename, int max_depth = 5) const;
 };
 
-fs::path jman::env_manager::__impl::__find_env_upwards(const std::string& filename, int max_depth) const {
+fs::path jman::env_manager::impl::find_env_upwards(const std::string& filename, int max_depth) const {
     fs::path current = fs::current_path();
 
     for (int i = 0; i < max_depth; ++i) {
@@ -45,13 +45,13 @@ fs::path jman::env_manager::__impl::__find_env_upwards(const std::string& filena
 
 jman::env_manager::env_manager() 
 {
-    void* ptr = ::operator new(sizeof(__impl), std::align_val_t{alignof(__impl)});
-    m_impl = jman::construct_at<__impl>(static_cast<__impl*>(ptr));
+    void* ptr = ::operator new(sizeof(impl), std::align_val_t{alignof(impl)});
+    m_impl = jman::construct_at<impl>(static_cast<impl*>(ptr));
 }
 jman::env_manager::~env_manager() noexcept
 {
-    jman::destruct_at<__impl>(m_impl);
-    ::operator delete(static_cast<void*>(m_impl), std::align_val_t{alignof(__impl)});
+    jman::destruct_at<impl>(m_impl);
+    ::operator delete(static_cast<void*>(m_impl), std::align_val_t{alignof(impl)});
 };
 
 // ################################################################################################
@@ -59,15 +59,15 @@ jman::env_manager::~env_manager() noexcept
 // ################################################################################################
 
 
-bool jman::env_manager::load(std::string_view path)
-{
+// bool jman::env_manager::load(std::string_view path)
+// {
 
-}
+// }
 
-bool jman::env_manager::load(const std::string& path)
-{
+// bool jman::env_manager::load(const std::string& path)
+// {
     
-}
+// }
 
 // ################################################################################################
 // -------------------------------------- CHECKING CACHE ----------------------------------------//

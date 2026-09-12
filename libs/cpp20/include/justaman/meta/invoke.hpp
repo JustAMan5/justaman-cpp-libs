@@ -2,14 +2,13 @@
 
 #include <utility>
 
-// idk what this shit does i just know its for calling any type of func depending on what is it
 namespace jman 
 {   
-    namespace __detail 
+    namespace detail 
     {
-        // pointers to member methods of a class
+        // pointers to member methods of a class, first argument is the function adress itself, the second arg is for the object that refers to
         template <typename Base, typename T, typename Derived, typename... Args>
-        auto __invoke_impl(T Base::*pmf, Derived&& obj, Args&&... args)
+        auto invoke_impl(T Base::*pmf, Derived&& obj, Args&&... args)
             -> decltype((std::forward<Derived>(obj).*pmf)(std::forward<Args>(args)...)) 
         {
             return (std::forward<Derived>(obj).*pmf)(std::forward<Args>(args)...);
@@ -17,12 +16,12 @@ namespace jman
 
         // invocable object like lambdas functions etc etc
         template <typename F, typename... Args>
-        auto __invoke_impl(F&& f, Args&&... args)
+        auto invoke_impl(F&& f, Args&&... args)
             -> decltype(std::forward<F>(f)(std::forward<Args>(args)...)) 
         {
             return std::forward<F>(f)(std::forward<Args>(args)...);
         }
-    } // namespace __detail
+    } // namespace jman::detail
 
     /**
         @brief
@@ -30,8 +29,8 @@ namespace jman
     */
     template <typename F, typename... Args>
     auto invoke(F&& f, Args&&... args) 
-        -> decltype(__detail::__invoke_impl(std::forward<F>(f), std::forward<Args>(args)...)) 
+        -> decltype(detail::invoke_impl(std::forward<F>(f), std::forward<Args>(args)...)) 
     {
-        return __detail::__invoke_impl(std::forward<F>(f), std::forward<Args>(args)...);
+        return detail::invoke_impl(std::forward<F>(f), std::forward<Args>(args)...);
     }
 } // namespace jman

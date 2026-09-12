@@ -44,20 +44,30 @@ namespace jman
         std::shared_ptr<signal_lifetime>    m_lifetime; // cool fix for when the connection lives longer than the signal
 
         private: 
-            JMAN_FORCE_INLINE static bool __alive_flag(slot slot) noexcept 
+            JMAN_FORCE_INLINE static bool m_alive_flag(slot slot) noexcept 
                 { return (slot.packed & ALIVE_FLAG_BIT) != 0; }
-            JMAN_FORCE_INLINE static bool __once_flag(slot slot) noexcept 
+            JMAN_FORCE_INLINE static bool m_once_flag(slot slot) noexcept 
+
                 { return (slot.packed & ONCE_FLAG_BIT) != 0; }
-            JMAN_FORCE_INLINE static std::uint32_t __gen_flag(slot slot) noexcept 
+            JMAN_FORCE_INLINE static std::uint32_t m_gen_flag(slot slot) noexcept 
+
                 { return static_cast<std::uint32_t>(slot.packed & 0xFFFFFFFF); }
 
-            JMAN_FORCE_INLINE static void __set_alive_flag(slot& slot, bool value) noexcept 
-                { slot.packed = value ? (slot.packed | ALIVE_FLAG_BIT) : (slot.packed & ~ALIVE_FLAG_BIT);; }
-            JMAN_FORCE_INLINE static void __set_once_flag(slot& slot, bool value) noexcept 
-                { slot.packed = value ? (slot.packed | ONCE_FLAG_BIT) : (slot.packed & ~ONCE_FLAG_BIT);; }
-            JMAN_FORCE_INLINE static void __set_gen_flag(slot& slot, std::uint32_t value) noexcept 
+
+
+            JMAN_FORCE_INLINE static void m_set_alive_flag(slot& slot, bool value) noexcept 
+                { slot.packed = value ? (slot.packed | ALIVE_FLAG_BIT) : (slot.packed & ~ALIVE_FLAG_BIT); }
+
+            JMAN_FORCE_INLINE static void m_set_once_flag(slot& slot, bool value) noexcept 
+                { slot.packed = value ? (slot.packed | ONCE_FLAG_BIT) : (slot.packed & ~ONCE_FLAG_BIT); }
+
+            JMAN_FORCE_INLINE static void m_set_gen_flag(slot& slot, std::uint32_t value) noexcept 
                 { slot.packed = (slot.packed & 0xFFFFFFFF00000000ULL) | static_cast<std::uint64_t>(value); }
-            void unchecked_disconnect_slot(std::size_t index);
+
+
+
+
+            void m_unchecked_disconnect_slot(std::size_t index);
             
         public:
 
@@ -145,7 +155,7 @@ void jman::fsignal<Args...>::connection::disconnect()
     auto lock = m_signal_lifetime.lock();
     if (!lock || !connected()) return;
 
-    m_signal->unchecked_disconnect_slot(m_index);
+    m_signal->m_unchecked_disconnect_slot(m_index);
     m_signal == nullptr;
 }
 
@@ -157,8 +167,8 @@ JMAN_NO_DISCARD bool jman::fsignal<Args...>::connection::connected() const noexc
             
     return signal && 
             m_index < m_signal->m_slots.size() && 
-            __alive_flag(sl) && 
-            __gen_flag(sl) == m_generation;
+            m_alive_flag(sl) && 
+            m_gen_flag(sl) == m_generation;
 }
 
 template <typename ...Args>
@@ -169,9 +179,9 @@ JMAN_NO_DISCARD bool jman::fsignal<Args...>::connection::once() const noexcept
             
     return signal && 
             m_index < m_signal->m_slots.size() && 
-            __alive_flag(sl) && 
-            __gen_flag(sl) == m_generation;
-            __once_flag(sl);
+            m_alive_flag(sl) && 
+            m_gen_flag(sl) == m_generation;
+            m_once_flag(sl);
 }
 
 
@@ -180,12 +190,12 @@ JMAN_NO_DISCARD bool jman::fsignal<Args...>::connection::once() const noexcept
 // ##########################################################################################
 
 template <typename ...Args>
-void jman::fsignal<Args...>::unchecked_disconnect_slot(std::size_t index)
+void jman::fsignal<Args...>::m_unchecked_disconnect_slot(std::size_t index)
 {
     slot& sl = m_slots[index];
 
-    __set_alive_flag(sl, false);
-    __set_once_flag(sl, false);
+    m_set_alive_flag(sl, false);
+    m_set_once_flag(sl, false);
     sl.callback = nullptr; 
 
     m_freeList.push_back(index);
@@ -199,7 +209,7 @@ void jman::fsignal<Args...>::unchecked_disconnect_slot(std::size_t index)
 template <typename ...Args>
 jman::fsignal<Args...>::~fsignal() noexcept {
     for (slot& sl: m_slots)
-        __set_alive_flag(sl, false);
+        m_set_alive_flag(sl, false);
 }
 
 template <typename ...Args>
@@ -235,21 +245,21 @@ jman::fsignal<Args...>::connection
     if (!m_freeList.empty()) {
         index = m_freeList.back();
         m_freeList.pop_back();
-        __set_gen_flag(m_slots[index], gen_flag(m_slots[index]) + 1);
+        m_set_gen_flag(m_slots[index], gen_flag(m_slots[index]) + 1);
     } else {
         index = m_slots.size();
         m_slots.emplace_back();
     }
     
     m_slots[index].callback = std::move(callback);
-    __set_alive_flag(m_slots[index], true);
-    __set_once_flag(m_slots[index], false); // just in case
+    m_set_alive_flag(m_slots[index], true);
+    m_set_once_flag(m_slots[index], false); // just in case
 
     return { 
         m_lifetime, 
         this, 
         index, 
-        __gen_flag(m_slots[index])
+        m_gen_flag(m_slots[index])
     };
 }
 
@@ -261,21 +271,21 @@ jman::fsignal<Args...>::connection
     if (!m_freeList.empty()) {
         index = m_freeList.back();
         m_freeList.pop_back();
-        __set_gen_flag(m_slots[index], gen_flag(m_slots[index]) + 1);
+        m_set_gen_flag(m_slots[index], gen_flag(m_slots[index]) + 1);
     } else {
         index = m_slots.size();
         m_slots.emplace_back();
     }
     
     m_slots[index].callback = std::move(callback);
-    __set_alive_flag(m_slots[index], true);
-    __set_once_flag(m_slots[index], true);
+    m_set_alive_flag(m_slots[index], true);
+    m_set_once_flag(m_slots[index], true);
 
     return { 
         m_lifetime, 
         this, 
         index, 
-        __gen_flag(m_slots[index])
+        m_gen_flag(m_slots[index])
     };
 }
 
@@ -289,7 +299,7 @@ void jman::fsignal<Args...>::fire(T&&... args)
 
         if (alive_flag(sl)) {
             sl.callback(static_cast<Args>(args)...); // sadly we cant forward them, we must copy
-            if (__once_flag(sl)) unchecked_disconnect_slot(i);
+            if (m_once_flag(sl)) m_unchecked_disconnect_slot(i);
         }
     }
 }
@@ -298,8 +308,8 @@ template <typename ...Args>
 void jman::fsignal<Args...>::disconnect_all() 
 {
     for (std::size_t i = 0; i < m_slots.size(); ++i) {
-        if (__alive_flag(m_slots[i]))
-            unchecked_disconnect_slot(i);
+        if (m_alive_flag(m_slots[i]))
+            m_unchecked_disconnect_slot(i);
     }
 }
 

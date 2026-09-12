@@ -8,13 +8,15 @@ int main()
     // jman::count(test.begin(), test.end(), [](const int& va){
     //     return va == 1;
     // });
-    jman::vector<float> list = {1, 8, 5, 2, 8, 1, 5, 2, 8, 52, 2, 6, 1000};
-    list.erase(2);
-    
-    for (auto num: list)
+    jman::vector<float> vec = {1, 8, 5, 2, 8, 1, 5, 2, 8, 52, 2, 6, 1000};
+
+    vec.erase(3, 5);
+
+    for (auto num: vec)
     {
-        jman::println("list {}", num);
+        jman::println("list1 {}", num);
     };
+
 
 
     return 0;

@@ -1,11 +1,11 @@
 #pragma once
 
+#include <justaman/utils/attributes.h>
 #include <cassert>
 #include <concepts>
 #include <cstring>
 #include <span>
 #include <string_view>
-#include <justaman/utils/attributes.h>
 
 
 

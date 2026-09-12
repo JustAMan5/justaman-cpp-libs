@@ -1,10 +1,10 @@
 #pragma once
 
+#include <justaman/containers/vector.hpp>
+#include <justaman/utils/attributes.h>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
-#include <justaman/containers/vector.hpp>
-#include <justaman/utils/attributes.h>
 
 /**
     priority queue structure:
@@ -38,18 +38,18 @@ namespace jman
             using const_pointer     = const T*;
         
         private:
-            struct __node 
+            struct node 
             {
                 size_type   priority;
                 value_type  value;
             };
             
-            jman::vector<__node> m_data {};
+            jman::vector<node> m_data {};
 
         private:
-            void __swim(size_type index)
+            void m_swim(size_type index)
                 noexcept(std::is_nothrow_swappable_v<T>); // fix up
-            void __sink(size_type index)
+            void m_sink(size_type index)
                 noexcept(std::is_nothrow_swappable_v<T>); // fix down
         
         public: 
@@ -81,7 +81,7 @@ namespace jman
 // #####################################################################################
 
 template <typename T>
-void jman::priority_queue<T>::__swim(size_type index)
+void jman::priority_queue<T>::m_swim(size_type index)
     noexcept(std::is_nothrow_swappable_v<T>)
 {
     while (index > 0 && m_data[(index - 1) >> 1].priority < m_data[index].priority)
@@ -92,7 +92,7 @@ void jman::priority_queue<T>::__swim(size_type index)
     }
 }
 template <typename T>
-void jman::priority_queue<T>::__sink(size_type index)
+void jman::priority_queue<T>::m_sink(size_type index)
     noexcept(std::is_nothrow_swappable_v<T>)
 {
     while (2 * index + 1 < m_data.size()) // if atleast left child exists
@@ -123,7 +123,7 @@ requires std::is_convertible_v<TT, T>
 void jman::priority_queue<T>::push(TT&& value, size_type priority)
 {
     m_data.emplace_back(priority, static_cast<T>(std::forward<TT>(value)));
-    __swim(m_data.size() - 1);
+    m_swim(m_data.size() - 1);
 }
 
 template <typename T>
@@ -131,7 +131,7 @@ template <typename ...Args>
 void jman::priority_queue<T>::emplace(size_type priority, Args&& ...args)
 {
     m_data.emplace_back(priority, std::forward<Args>(args)...);
-    __swim(m_data.size() - 1);
+    m_swim(m_data.size() - 1);
 }
 
 template <typename T>
@@ -144,5 +144,5 @@ void jman::priority_queue<T>::pop()
     m_data.front() = std::move_if_noexcept(m_data.back());
     m_data.pop_back();
 
-    __sink(0);
+    m_sink(0);
 }

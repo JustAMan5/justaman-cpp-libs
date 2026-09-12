@@ -5,10 +5,10 @@
 // -------------------------------- Custom swap impl -------------------------------//
 // ###################################################################################
 
-namespace jman::__detail 
+namespace jman::detail 
 {
     template <std::unsigned_integral T>
-    JMAN_FORCE_INLINE constexpr T __bswap_fallback(T val) noexcept 
+    JMAN_FORCE_INLINE constexpr T bswap_fallback(T val) noexcept 
     {
         if constexpr (sizeof(T) == 1)
             return val;
@@ -46,7 +46,7 @@ namespace jman::__detail
 #endif // __cpp_lib_byteswap
 
 
-namespace jman::__detail 
+namespace jman::detail 
 {
     template <std::integral T>
     JMAN_FORCE_INLINE constexpr T bswap(T val) noexcept 
@@ -74,7 +74,7 @@ namespace jman::__detail
             else if constexpr (sizeof(T) == 4) result = bswap_32(u_val);
             else if constexpr (sizeof(T) == 8) result = bswap_64(u_val);
         #else
-            result = custom_bswap(u_val);
+            result = bswap_fallback(u_val);
         #endif
 
         return static_cast<T>(result); // cast to the original type
@@ -88,19 +88,19 @@ namespace jman::__detail
 JMAN_NO_DISCARD std::uint16_t jman::ensure_little_endian(std::uint16_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::big) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::uint32_t jman::ensure_little_endian(std::uint32_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::big) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::uint64_t jman::ensure_little_endian(std::uint64_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::big) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }   
 
@@ -108,19 +108,19 @@ JMAN_NO_DISCARD std::uint64_t jman::ensure_little_endian(std::uint64_t x) noexce
 JMAN_NO_DISCARD std::int16_t jman::ensure_little_endian(std::int16_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::big) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::int32_t jman::ensure_little_endian(std::int32_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::big) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::int64_t jman::ensure_little_endian(std::int64_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::big) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }   
 
@@ -133,19 +133,19 @@ JMAN_NO_DISCARD std::int64_t jman::ensure_little_endian(std::int64_t x) noexcept
 JMAN_NO_DISCARD std::uint16_t jman::ensure_big_endian(std::uint16_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::little) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::uint32_t jman::ensure_big_endian(std::uint32_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::little) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::uint64_t jman::ensure_big_endian(std::uint64_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::little) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 
@@ -154,19 +154,19 @@ JMAN_NO_DISCARD std::uint64_t jman::ensure_big_endian(std::uint64_t x) noexcept
 JMAN_NO_DISCARD std::int16_t jman::ensure_big_endian(std::int16_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::little) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::int32_t jman::ensure_big_endian(std::int32_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::little) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::int64_t jman::ensure_big_endian(std::int64_t x) noexcept
 {
     if constexpr (std::endian::native == std::endian::little) 
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 } 
 
@@ -178,19 +178,19 @@ JMAN_NO_DISCARD std::int64_t jman::ensure_big_endian(std::int64_t x) noexcept
 JMAN_NO_DISCARD std::uint16_t jman::ensure_native_endian(std::uint16_t x, std::endian source) noexcept
 {
     if (std::endian::native != source)
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::uint32_t jman::ensure_native_endian(std::uint32_t x, std::endian source) noexcept
 {
     if (std::endian::native != source)
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::uint64_t jman::ensure_native_endian(std::uint64_t x, std::endian source) noexcept
 {
     if (std::endian::native != source)
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 
@@ -198,18 +198,18 @@ JMAN_NO_DISCARD std::uint64_t jman::ensure_native_endian(std::uint64_t x, std::e
 JMAN_NO_DISCARD std::int16_t jman::ensure_native_endian(std::int16_t x, std::endian source) noexcept
 {
     if (std::endian::native != source)
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::int32_t jman::ensure_native_endian(std::int32_t x, std::endian source) noexcept
 {
     if (std::endian::native != source)
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 }
 JMAN_NO_DISCARD std::int64_t jman::ensure_native_endian(std::int64_t x, std::endian source) noexcept
 {
     if (std::endian::native != source)
-        return __detail::bswap(x);
+        return detail::bswap(x);
     return x;
 } 

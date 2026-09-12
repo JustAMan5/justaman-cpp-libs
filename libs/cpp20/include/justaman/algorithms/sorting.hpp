@@ -22,7 +22,7 @@ namespace jman
             std::is_nothrow_swappable_v<std::iter_value_t<RandomAccessIterator>>;
 }
 
-namespace jman::__detail
+namespace jman::detail
 {
     struct intro_sort_task 
     {
@@ -34,7 +34,7 @@ namespace jman::__detail
     template <typename RandomAccessIterator, class Comp>
     requires std::random_access_iterator<RandomAccessIterator> &&
             std::indirect_strict_weak_order<Comp, RandomAccessIterator>
-    RandomAccessIterator __qsort_partition(RandomAccessIterator start, RandomAccessIterator end, Comp comp)
+    RandomAccessIterator qsort_partition(RandomAccessIterator start, RandomAccessIterator end, Comp comp)
         noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Comp>) 
     {
         auto mid = start + (end - start) / 2;
@@ -62,7 +62,7 @@ namespace jman::__detail
     template <typename RandomAccessIterator, class Comp>
     requires std::random_access_iterator<RandomAccessIterator> &&
             std::indirect_strict_weak_order<Comp, RandomAccessIterator>
-    void __hsort_heapify(RandomAccessIterator start, RandomAccessIterator end, std::size_t i, Comp comp) 
+    void hsort_heapify(RandomAccessIterator start, RandomAccessIterator end, std::size_t i, Comp comp) 
         noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Comp>)
     {
         std::size_t length = end - start;
@@ -93,7 +93,7 @@ namespace jman::__detail
     template <typename RandomAccessIterator, class Comp>
     requires std::random_access_iterator<RandomAccessIterator> &&
             std::indirect_strict_weak_order<Comp, RandomAccessIterator>
-    void __msort__merge(
+    void msort__merge(
         RandomAccessIterator L1, 
         RandomAccessIterator R1, 
         RandomAccessIterator L2, 
@@ -330,7 +330,7 @@ void jman::qsort(RandomAccessIterator start, RandomAccessIterator end, Compare c
         // }
         // std::swap(*i, *pivot);
 
-        auto newPivot = __detail::__qsort_partition(start, end, comp);
+        auto newPivot = detail::qsort_partition(start, end, comp);
 
         if (newPivot > start) {
             stack[++top] = start;
@@ -385,7 +385,7 @@ void jman::msort(RandomAccessIterator start, RandomAccessIterator end, Compare c
             if (R2 >= length)
                 R2 = length - 1;
 
-            __detail::__msort__merge(start + L1, start + R1, start + L2, start + R2, tmp, comp);
+            detail::msort__merge(start + L1, start + R1, start + L2, start + R2, tmp, comp);
             for (std::size_t j = 0; j < R2 - L1 + 1; ++j)
                 start[i + j] = std::move_if_noexcept(tmp[j]);
     
@@ -419,7 +419,7 @@ void jman::hsort(RandomAccessIterator start, RandomAccessIterator end, Compare c
 
     // build heap inplace
     for (int i = length / 2 - 1; i >= 0; --i)
-        __detail::__hsort_heapify(start, end, i, comp);
+        detail::hsort_heapify(start, end, i, comp);
 
     // one by one extract top elements from the heap and swap them with the back
     for (int i = length - 1; i > 0; --i) {
@@ -428,7 +428,7 @@ void jman::hsort(RandomAccessIterator start, RandomAccessIterator end, Compare c
         std::swap(start[0], start[i]);
 
         // rearrange the heap again
-        __detail::__hsort_heapify(start, start + i, 0, comp);
+        detail::hsort_heapify(start, start + i, 0, comp);
     }
 }
 
@@ -537,14 +537,14 @@ void jman::sort(RandomAccessIterator start, RandomAccessIterator end, Compare co
 
     std::size_t depthLimit = 2 * std::log2(length);
 
-    __detail::intro_sort_task stack[128];
+    detail::intro_sort_task stack[128];
     int top = -1;
     stack[++top] = {0, length - 1, depthLimit};
 
 
     while (top >= 0) 
     {
-        __detail::intro_sort_task task = stack[top--];
+        detail::intro_sort_task task = stack[top--];
         std::size_t subLength = task.right - task.left + 1;
 
         // case 1: portion is very small, use insertion sort
@@ -560,7 +560,7 @@ void jman::sort(RandomAccessIterator start, RandomAccessIterator end, Compare co
         }
 
         // use median of three to find a pivot index for quick sort
-        std::size_t pivot_idx = __detail::__qsort_partition(start + task.left, start + task.right + 1, comp) - start;
+        std::size_t pivot_idx = detail::qsort_partition(start + task.left, start + task.right + 1, comp) - start;
 
         // add sub arrays tasks to the stack 
         // (small stack optimization) add first the largest sub array

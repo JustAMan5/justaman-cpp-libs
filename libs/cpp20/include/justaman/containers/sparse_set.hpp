@@ -59,15 +59,14 @@ namespace jman
                 size_type offset; // offset of the value in the page
             };
 
-            static JMAN_FORCE_INLINE size_type  __page_index(K key) noexcept { return key >> L; }
-            static JMAN_FORCE_INLINE size_type  __page_offset(K key) noexcept { return key & PAGE_MASK; }
+            static JMAN_FORCE_INLINE size_type                  m_page_index(K key) noexcept { return key >> L; }
+            static JMAN_FORCE_INLINE size_type                  m_page_offset(K key) noexcept { return key & PAGE_MASK; }
 
-            JMAN_FORCE_INLINE bool              __page_exists(K key) const noexcept;
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE sparse_location
-                                                __locate(K key) const noexcept;
+            JMAN_FORCE_INLINE bool                              m_page_exists(K key) const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE sparse_location   m_locate(K key) const noexcept;
 
-            JMAN_FORCE_INLINE size_type         __index_unchecked(K key) const noexcept;
-            void                                __ensure_sparse_size(K key) ;
+            JMAN_FORCE_INLINE size_type                         m_index_unchecked(K key) const noexcept;
+            void                                                m_ensure_sparse_size(K key) ;
 
         public:
             sparse_set() = default;
@@ -126,9 +125,9 @@ namespace jman
 // #####################################################################################
 
 template <typename V, std::unsigned_integral K, std::size_t PageSize>
-void jman::sparse_set<V, K, PageSize>::__ensure_sparse_size(K key) 
+void jman::sparse_set<V, K, PageSize>::m_ensure_sparse_size(K key) 
 {
-    size_type page_index = __page_index(key);
+    size_type page_index = m_page_index(key);
     
     // make sure the m_page_map has enough size for the new index
     if (page_index >= m_page_map.size())
@@ -144,23 +143,23 @@ void jman::sparse_set<V, K, PageSize>::__ensure_sparse_size(K key)
 }
 
 template <typename V, std::unsigned_integral K, std::size_t PageSize>
-JMAN_FORCE_INLINE bool jman::sparse_set<V, K, PageSize>::__page_exists(K key) const noexcept 
+JMAN_FORCE_INLINE bool jman::sparse_set<V, K, PageSize>::m_page_exists(K key) const noexcept 
 {
-    size_type page = __page_index(key);
+    size_type page = m_page_index(key);
     return page < m_page_map.size() && m_page_map[page] != INVALID_INDEX;
 }
 
 template <typename V, std::unsigned_integral K, std::size_t PageSize>
-JMAN_FORCE_INLINE jman::sparse_set<V, K, PageSize>::sparse_location jman::sparse_set<V, K, PageSize>::__locate(K key) const noexcept 
+JMAN_FORCE_INLINE jman::sparse_set<V, K, PageSize>::sparse_location jman::sparse_set<V, K, PageSize>::m_locate(K key) const noexcept 
 {
     return {
-        m_page_map[__page_index(key)],
-        __page_offset(key)
+        m_page_map[m_page_index(key)],
+        mm_page_offset(key)
     };
 }
 
 template <typename V, std::unsigned_integral K, std::size_t PageSize>
-JMAN_FORCE_INLINE jman::sparse_set<V, K, PageSize>::size_type jman::sparse_set<V, K, PageSize>::__index_unchecked(K key) const noexcept
+JMAN_FORCE_INLINE jman::sparse_set<V, K, PageSize>::size_type jman::sparse_set<V, K, PageSize>::m_index_unchecked(K key) const noexcept
 {
     auto loc = locate(key);
     return m_sparse_data[loc.real_page][loc.offset];
@@ -221,9 +220,9 @@ template <typename T>
 requires std::convertible_to<T, V>
 V& jman::sparse_set<V, K, PageSize>::insert(K key, T&& value) noexcept
 {
-    __ensure_sparse_size(key);
+    m_ensure_sparse_size(key);
 
-    sparse_location loc = __locate(key);
+    sparse_location loc = m_locate(key);
     size_type denseIndex = m_sparse_data[loc.real_page][loc.offset];
 
     if (denseIndex == INVALID_INDEX)
@@ -242,9 +241,9 @@ template <typename V, std::unsigned_integral K, std::size_t PageSize>
 template <typename ...Args>
 V& jman::sparse_set<V, K, PageSize>::emplace(K key, Args&&... args) noexcept
 {
-    __ensure_sparse_size(key);
+    m_ensure_sparse_size(key);
 
-    sparse_location loc = __locate(key);
+    sparse_location loc = m_locate(key);
     size_type denseIndex = m_sparse_data[loc.real_page][loc.offset];
 
     if (denseIndex == INVALID_INDEX)
@@ -263,9 +262,9 @@ template <typename V, std::unsigned_integral K, std::size_t PageSize>
 template <typename ...Args>
 V& jman::sparse_set<V, K, PageSize>::emplace_or_replace(K key, Args&&... args) noexcept
 {
-    __ensure_sparse_size(key);
+    m_ensure_sparse_size(key);
 
-    sparse_location loc = __locate(key);
+    sparse_location loc = m_locate(key);
     size_type denseIndex = m_sparse_data[loc.real_page][loc.offset];
 
     if (denseIndex == INVALID_INDEX)
@@ -285,9 +284,9 @@ template <typename T>
 requires std::convertible_to<T, V>
 V& jman::sparse_set<V, K, PageSize>::replace(K key, T&& value) noexcept
 {
-    __ensure_sparse_size(key);
+    m_ensure_sparse_size(key);
 
-    sparse_location loc = __locate(key);
+    sparse_location loc = m_locate(key);
     size_type denseIndex = m_sparse_data[loc.real_page][loc.offset];
 
     if (denseIndex != INVALID_INDEX)
@@ -304,14 +303,14 @@ void jman::sparse_set<V, K, PageSize>::erase(K key) noexcept
     const size_type denseIndex = dense_index(key);
     if (denseIndex == INVALID_INDEX) return;
 
-    sparse_location id_loc = __locate(key);
+    sparse_location id_loc = m_locate(key);
                 
     if (m_dense_keys.back() != key)
     {
         size_type index_to_remove = denseIndex;
         K last_key = m_dense_keys.back();
 
-        sparse_location last_loc = __locate(last_key);
+        sparse_location last_loc = m_locate(last_key);
         
         // set the info of the erased element to the last
         m_dense_keys[index_to_remove] = last_key;
@@ -369,15 +368,15 @@ JMAN_NO_DISCARD const V* jman::sparse_set<V, K, PageSize>::find(K key) const noe
 template <typename V, std::unsigned_integral K, std::size_t PageSize>
 JMAN_NO_DISCARD JMAN_FORCE_INLINE bool jman::sparse_set<V, K, PageSize>::contains(K key) const noexcept
 {
-    if (!__page_exists(key)) return false;
-    return __index_unchecked(key) != INVALID_INDEX;
+    if (!m_page_exists(key)) return false;
+    return m_index_unchecked(key) != INVALID_INDEX;
 }
 
 template <typename V, std::unsigned_integral K, std::size_t PageSize>
 JMAN_NO_DISCARD JMAN_FORCE_INLINE jman::sparse_set<V, K, PageSize>::size_type jman::sparse_set<V, K, PageSize>::dense_index(K key) const noexcept
 {
-    if (!__page_exists(key)) return INVALID_INDEX;
-    return __index_unchecked(key);
+    if (!m_page_exists(key)) return INVALID_INDEX;
+    return m_index_unchecked(key);
 }
 
 template <typename V, std::unsigned_integral K, std::size_t PageSize>

@@ -34,7 +34,7 @@ namespace jman
             T*                  allocate(Args&&... args) {
                 void* address = allocate(sizeof(T), alignof(T));
                 if (address == nullptr) return nullptr;
-
+                
                 return ::new(address) T{ std::forward<Args>(args)... };
             }
     };

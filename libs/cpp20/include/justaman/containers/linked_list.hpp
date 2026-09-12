@@ -6,19 +6,25 @@
 #include <justaman/algorithms/numeric.hpp>
 #include <justaman/utils/scope.hpp>
 #include <iterator>
-#include <limits>
-#include <new>
-#include <type_traits>
 #include <stdexcept>
+#include <utility>
+#include <type_traits>
+
+
+namespace jman::detail 
+{
+    template <typename T>
+    struct linked_list_iterator;
+    template <typename T>
+    struct linked_list_const_iterator;
+} // namespace jman::detail
+
 
 namespace jman 
 {
     /**
         @brief
              my custom implementation of a fast and exception safe doubly circular linked list
-        \n
-        Iterators:
-            iterators work the same as std::vector and have the same rules
     */
     template <typename T>
     class linked_list 
@@ -36,99 +42,8 @@ namespace jman
             using pointer           = T*;
             using const_pointer     = const T*;
 
-        private:
-            struct __list_node_base 
-            {
-                __list_node_base* next;
-                __list_node_base* prev;
-            };
-
-            struct __list_node: public __list_node_base
-            {
-                alignas(T) std::byte buffer[sizeof(T)];
-            };
-
-            __list_node_base    m_dummy {};
-            std::size_t         m_size = 0;
-
-        private:
-            JMAN_NO_DISCARD static JMAN_FORCE_INLINE T* __ptr(__list_node* node) noexcept { return std::launder(reinterpret_cast<T*>(&node->buffer)); }
-            JMAN_NO_DISCARD static JMAN_FORCE_INLINE const T* __ptr(const __list_node* node) noexcept { return std::launder(reinterpret_cast<const T*>(&node->buffer)); }
-
-            JMAN_NO_DISCARD static JMAN_FORCE_INLINE T* __ptr(__list_node_base* node) noexcept { return std::launder(reinterpret_cast<T*>(&static_cast<__list_node*>(node)->buffer)); }
-            JMAN_NO_DISCARD static JMAN_FORCE_INLINE const T* __ptr(const __list_node_base* node) noexcept { return std::launder(reinterpret_cast<const T*>(&static_cast<const __list_node*>(node)->buffer)); }
-
-            JMAN_NO_DISCARD static JMAN_FORCE_INLINE T& __value(__list_node* node) noexcept { return *std::launder(reinterpret_cast<T*>(&node->buffer)); }
-            JMAN_NO_DISCARD static JMAN_FORCE_INLINE const T& __value(const __list_node* node) noexcept { return *std::launder(reinterpret_cast<const T*>(&node->buffer)); }
-
-            JMAN_NO_DISCARD static JMAN_FORCE_INLINE T& __value(__list_node_base* node) noexcept { return *std::launder(reinterpret_cast<T*>(&static_cast<__list_node*>(node)->buffer)); }
-            JMAN_NO_DISCARD static JMAN_FORCE_INLINE const T& __value(const __list_node_base* node) noexcept { return *std::launder(reinterpret_cast<const T*>(&static_cast<const __list_node*>(node)->buffer)); }
-
-            void __clean_nodes_up_to_backwards(__list_node_base* node) noexcept;
-            void __clean_nodes_up_to_forward(__list_node_base* node) noexcept;
-            void __swap_nodes(__list_node_base* a, __list_node_base* b) noexcept;
-            __list_node_base* __split() noexcept;
-            template <typename Comp>
-            __list_node_base* __sort_merge(__list_node_base* first, __list_node_base* second, Comp comp);
-
-        public:
-            struct const_iterator
-            {
-                private: 
-                    friend class linked_list<T>;
-                    const __list_node_base* m_ptr;
-                
-                public:
-                    using iterator_category = std::bidirectional_iterator_tag;
-                    using value_type        = T;
-                    using difference_type   = std::ptrdiff_t;
-                    using reference         = const T&;
-                    using pointer           = const T*;
-
-                    explicit const_iterator(__list_node_base* ptr) noexcept
-                        : m_ptr(ptr) {}
-
-                    JMAN_FORCE_INLINE const_iterator& operator++() noexcept { m_ptr = m_ptr->next; return *this; }
-                    JMAN_FORCE_INLINE const_iterator operator++(int) noexcept { iterator retval = *this; ++(*this); return retval; }
-                    JMAN_FORCE_INLINE const_iterator& operator--() noexcept { m_ptr = m_ptr->prev; return *this; }
-                    JMAN_FORCE_INLINE const_iterator operator--(int) noexcept { iterator retval = *this; --(*this); return retval; }
-
-                    JMAN_FORCE_INLINE pointer operator->() const { return __ptr(m_ptr); }
-                    JMAN_FORCE_INLINE reference operator*() const { return __value(m_ptr); }
-
-                    JMAN_FORCE_INLINE bool operator==(const const_iterator& other) const noexcept { return m_ptr == other.m_ptr; }
-                    JMAN_FORCE_INLINE bool operator!=(const const_iterator& other) const noexcept { return m_ptr != other.m_ptr; }
-            };
-
-            struct iterator
-            {
-                private: 
-                    friend class linked_list<T>;
-                    __list_node_base* m_ptr;
-                
-                public:
-                    using iterator_category = std::bidirectional_iterator_tag;
-                    using value_type        = T;
-                    using difference_type   = std::ptrdiff_t;
-                    using reference         = T&;
-                    using pointer           = T*;
-
-                    explicit iterator(__list_node_base* ptr) noexcept
-                        : m_ptr(ptr) {}
-                    
-                    JMAN_FORCE_INLINE iterator& operator++() noexcept { m_ptr = m_ptr->next; return *this; }
-                    JMAN_FORCE_INLINE iterator operator++(int) noexcept { iterator retval = *this; ++(*this); return retval; }
-                    JMAN_FORCE_INLINE iterator& operator--() noexcept { m_ptr = m_ptr->prev; return *this; }
-                    JMAN_FORCE_INLINE iterator operator--(int) noexcept { iterator retval = *this; --(*this); return retval; }
-
-                    JMAN_FORCE_INLINE pointer operator->() const { return __ptr(m_ptr); }
-                    JMAN_FORCE_INLINE reference operator*() const { return __value(m_ptr); }
-
-                    JMAN_FORCE_INLINE bool operator==(const iterator& other) const noexcept { return m_ptr == other.m_ptr; }
-                    JMAN_FORCE_INLINE bool operator!=(const iterator& other) const noexcept { return m_ptr != other.m_ptr; }
-
-                    operator const_iterator() const { return const_iterator{m_ptr}; };
-            };
+            using iterator = detail::linked_list_iterator<T>;
+            using const_iterator = detail::linked_list_const_iterator<T>;
 
             using reverse_iterator = std::reverse_iterator<iterator>;
             using const_reverse_iterator = std::reverse_iterator<const_iterator>;
@@ -150,40 +65,40 @@ namespace jman
 
             // ------------------------------ accessing
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE reference         front() { return __value(m_dummy.next); }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reference   front() const { return __value(m_dummy.next); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE reference         front() noexcept        { return m_value(m_dummy.next); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reference   front() const noexcept  { return m_value(m_dummy.next); }
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE reference         back() { return __value(m_dummy.prev); }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reference   back() const { return __value(m_dummy.prev); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE reference         back() noexcept         { return m_value(m_dummy.prev); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reference   back() const noexcept   { return m_value(m_dummy.prev); }
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE reference         at(size_type index);
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reference   at(size_type index) const;
+            JMAN_NO_DISCARD reference                           at(size_type index);
+            JMAN_NO_DISCARD const_reference                     at(size_type index) const;
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          find(const_reference value) noexcept;
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    find(const_reference value) const noexcept; 
+            JMAN_NO_DISCARD iterator                            find(const_reference value) noexcept;
+            JMAN_NO_DISCARD const_iterator                      find(const_reference value) const noexcept; 
 
             // ---------------------------- iterators
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          begin() noexcept { return iterator{m_dummy.next}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          end() noexcept { return iterator{&m_dummy}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    begin() const noexcept { return const_iterator{m_dummy.next}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    end() const noexcept { return const_iterator{&m_dummy}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    cbegin() const noexcept { return const_iterator{m_dummy.next}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    cend() const noexcept { return const_iterator{&m_dummy}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          begin() noexcept            { return iterator{m_dummy.next}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          end() noexcept              { return iterator{&m_dummy}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    begin() const noexcept      { return const_iterator{m_dummy.next}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    end() const noexcept        { return const_iterator{&m_dummy}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    cbegin() const noexcept     { return const_iterator{m_dummy.next}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    cend() const noexcept       { return const_iterator{&m_dummy}; }
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE reverse_iterator          rbegin() noexcept { return reverse_iterator{iterator{&m_dummy}}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE reverse_iterator          rend() noexcept { return reverse_iterator{iterator{m_dummy.next}}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reverse_iterator    rbegin() const noexcept { return const_reverse_iterator{const_iterator{m_dummy.next}}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reverse_iterator    rend() const noexcept { return const_reverse_iterator{const_iterator{&m_dummy}}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reverse_iterator    crbegin() const noexcept { return const_reverse_iterator{const_iterator{m_dummy.next}}; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reverse_iterator    crend() const noexcept { return const_reverse_iterator{const_iterator{&m_dummy}}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE reverse_iterator          rbegin() noexcept           { return reverse_iterator{iterator{&m_dummy}}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE reverse_iterator          rend() noexcept             { return reverse_iterator{iterator{m_dummy.next}}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reverse_iterator    rbegin() const noexcept     { return const_reverse_iterator{const_iterator{m_dummy.next}}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reverse_iterator    rend() const noexcept       { return const_reverse_iterator{const_iterator{&m_dummy}}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reverse_iterator    crbegin() const noexcept    { return const_reverse_iterator{const_iterator{m_dummy.next}}; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reverse_iterator    crend() const noexcept      { return const_reverse_iterator{const_iterator{&m_dummy}}; }
 
             // -------------------------------- stats
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool              empty() const noexcept { return m_size == 0; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         size() const noexcept { return m_size; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool              empty() const noexcept          { return m_size == 0; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         size() const noexcept           { return m_size; }
             /** @warning: this method is just an aproximation */
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         max_size() const noexcept { return std::numeric_limits<size_type>::max() / sizeof(__list_node); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         max_size() const noexcept       { return std::numeric_limits<size_type>::max() / sizeof(list_node); }
 
             // -------------------------------- modifiers
 
@@ -246,56 +161,178 @@ namespace jman
 
             void                                                erase(iterator it); 
             void                                                erase(size_type index); 
+
+        private:
+            struct list_node_base 
+            {
+                list_node_base* next;
+                list_node_base* prev;
+            };
+
+            struct list_node: public list_node_base
+            {
+                alignas(T) std::byte buffer[sizeof(T)];
+            };
+
+            list_node_base      m_dummy {};
+            std::size_t         m_size = 0;
+
+        private:
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE T*         m_val_ptr(list_node* node) noexcept { return std::launder(reinterpret_cast<T*>(&node->buffer)); }
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE const T*   m_val_ptr(const list_node* node) noexcept { return std::launder(reinterpret_cast<const T*>(&node->buffer)); }
+
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE T*         m_val_ptr(list_node_base* node) noexcept { return std::launder(reinterpret_cast<T*>(&static_cast<list_node*>(node)->buffer)); }
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE const T*   m_val_ptr(const list_node_base* node) noexcept { return std::launder(reinterpret_cast<const T*>(&static_cast<const list_node*>(node)->buffer)); }
+
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE T&         m_value(list_node* node) noexcept { return *std::launder(reinterpret_cast<T*>(&node->buffer)); }
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE const T&   m_value(const list_node* node) noexcept { return *std::launder(reinterpret_cast<const T*>(&node->buffer)); }
+
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE T&         m_value(list_node_base* node) noexcept { return *std::launder(reinterpret_cast<T*>(&static_cast<list_node*>(node)->buffer)); }
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE const T&   m_value(const list_node_base* node) noexcept { return *std::launder(reinterpret_cast<const T*>(&static_cast<const list_node*>(node)->buffer)); }
+
+            JMAN_NO_DISCARD static JMAN_FORCE_INLINE linked_list<T>::list_node*     m_alloc_node();
+            static JMAN_FORCE_INLINE void                                           m_dealloc_node(void* node) noexcept;
+
+            void                        m_clean_nodes_up_to_backwards(list_node_base* node) noexcept;
+            void                        m_clean_nodes_up_to_forward(list_node_base* node) noexcept;
+
+            void                        m_swap_nodes(list_node_base* a, list_node_base* b) noexcept;
+
+            template <typename Comp>
+            list_node_base*             m_sort_merge(list_node_base* first, list_node_base* second, Comp comp);
     };
-}
+} // namespace jman
+
+// #####################################################################################################################
+// --------------------------------------------------- ITERATORS IMPL ------------------------------------------------//
+// #####################################################################################################################
+
+namespace jman::detail 
+{
+    template <typename T>
+    struct linked_list_const_iterator
+    {
+        private: 
+            using node = linked_list<T>::list_node_base;
+
+            friend class linked_list<T>;
+            const node* m_val_ptr;
+        
+        public:
+            using iterator_category = std::bidirectional_iterator_tag;
+            using value_type        = T;
+            using difference_type   = std::ptrdiff_t;
+            using reference         = const T&;
+            using pointer           = const T*;
+
+            explicit linked_list_const_iterator(node* ptr) noexcept
+                : m_val_ptr(ptr) {}
+
+            JMAN_FORCE_INLINE linked_list_const_iterator& operator++() noexcept { m_val_ptr = m_val_ptr->next; return *this; }
+            JMAN_FORCE_INLINE linked_list_const_iterator operator++(int) noexcept { linked_list_const_iterator retval = *this; ++(*this); return retval; }
+            JMAN_FORCE_INLINE linked_list_const_iterator& operator--() noexcept { m_val_ptr = m_val_ptr->prev; return *this; }
+            JMAN_FORCE_INLINE linked_list_const_iterator operator--(int) noexcept { linked_list_const_iterator retval = *this; --(*this); return retval; }
+
+            JMAN_FORCE_INLINE pointer operator->() const { return m_val_ptr(m_val_ptr); }
+            JMAN_FORCE_INLINE reference operator*() const { return m_value(m_val_ptr); }
+
+            JMAN_FORCE_INLINE bool operator==(const linked_list_const_iterator& other) const noexcept { return m_val_ptr == other.m_val_ptr; }
+            JMAN_FORCE_INLINE bool operator!=(const linked_list_const_iterator& other) const noexcept { return m_val_ptr != other.m_val_ptr; }
+    };
+
+    template <typename T>
+    struct linked_list_iterator
+    {
+        private: 
+            using node = linked_list<T>::list_node_base;
+
+            friend class linked_list<T>;
+            node* m_val_ptr;
+        
+        public:
+            using iterator_category = std::bidirectional_iterator_tag;
+            using value_type        = T;
+            using difference_type   = std::ptrdiff_t;
+            using reference         = T&;
+            using pointer           = T*;
+
+            explicit linked_list_iterator(node* ptr) noexcept
+                : m_val_ptr(ptr) {}
+            
+            JMAN_FORCE_INLINE linked_list_iterator& operator++() noexcept { m_val_ptr = m_val_ptr->next; return *this; }
+            JMAN_FORCE_INLINE linked_list_iterator operator++(int) noexcept { linked_list_iterator retval = *this; ++(*this); return retval; }
+            JMAN_FORCE_INLINE linked_list_iterator& operator--() noexcept { m_val_ptr = m_val_ptr->prev; return *this; }
+            JMAN_FORCE_INLINE linked_list_iterator operator--(int) noexcept { linked_list_iterator retval = *this; --(*this); return retval; }
+
+            JMAN_FORCE_INLINE pointer operator->() const { return m_val_ptr(m_val_ptr); }
+            JMAN_FORCE_INLINE reference operator*() const { return m_value(m_val_ptr); }
+
+            JMAN_FORCE_INLINE bool operator==(const linked_list_iterator& other) const noexcept { return m_val_ptr == other.m_val_ptr; }
+            JMAN_FORCE_INLINE bool operator!=(const linked_list_iterator& other) const noexcept { return m_val_ptr != other.m_val_ptr; }
+
+            operator linked_list_const_iterator<T>() const { return linked_list_const_iterator{m_val_ptr}; };
+    };
+} // jman::detail
 
 // ####################################################################################################################
 // ----------------------------------------------- PRIVATE CLASS METHODS --------------------------------------------//
 // ####################################################################################################################
 
-/**
-    @brief 
-        cleans nodes backwards until finding the dummy node
-*/
+namespace jman {
+
 template <typename T>
-void jman::linked_list<T>::__clean_nodes_up_to_backwards(__list_node_base* node) noexcept
+JMAN_NO_DISCARD JMAN_FORCE_INLINE linked_list<T>::list_node* linked_list<T>::m_alloc_node()
+{
+    return static_cast<list_node*>(::operator new(sizeof(list_node), std::align_val_t{alignof(list_node)}));
+}
+template <typename T>
+JMAN_FORCE_INLINE void linked_list<T>::m_dealloc_node(void* node) noexcept
+{
+    ::operator delete(node, std::align_val_t{alignof(list_node)});
+}
+
+
+
+
+template <typename T>
+void linked_list<T>::m_clean_nodes_up_to_backwards(list_node_base* node) noexcept
 {
     while (node != &m_dummy) {
-        __list_node* ptr = static_cast<__list_node*>(node);
-        __list_node_base* prev = node->prev;
+        list_node* ptr = static_cast<list_node*>(node);
+        list_node_base* prev = node->prev;
 
-        jman::destruct_at<T>(__ptr(ptr));
-        ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+        jman::destruct_at<T>(m_val_ptr(ptr));
+        m_dealloc_node(node);
 
         node = prev;
     }
 }
 
-/**
-    @brief 
-        cleans nodes forward until finding the dummy node
-*/
 template <typename T>
-void jman::linked_list<T>::__clean_nodes_up_to_forward(__list_node_base* node) noexcept
+void linked_list<T>::m_clean_nodes_up_to_forward(list_node_base* node) noexcept
 {
     while (node != &m_dummy) {
-        __list_node* ptr = static_cast<__list_node*>(node);
-        __list_node_base* next = node->next;
+        list_node* ptr = static_cast<list_node*>(node);
+        list_node_base* next = node->next;
         
-        jman::destruct_at<T>(__ptr(ptr));
-        ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+        jman::destruct_at<T>(m_val_ptr(ptr));
+        m_dealloc_node(node);
         
         node = next;
     }
 }
 
+
+
+
+
 template <typename T>
-void jman::linked_list<T>::__swap_nodes(__list_node_base* a, __list_node_base* b) noexcept
+void linked_list<T>::m_swap_nodes(list_node_base* a, list_node_base* b) noexcept
 {
     // Case 1: Nodes are adjacent (a's next neighbor node is b)
     if (a->next == b) {
-        __list_node_base* aPrev = a->prev;
-        __list_node_base* bNext = b->next;
+        list_node_base* aPrev = a->prev;
+        list_node_base* bNext = b->next;
 
         aPrev->next = b;
         bNext->prev = a;
@@ -307,8 +344,8 @@ void jman::linked_list<T>::__swap_nodes(__list_node_base* a, __list_node_base* b
     }
     // Case 2: Nodes are adjacent (b's next neighbor node is a)
     else if (b->next == a) {
-        __list_node_base* bPrev = b->prev;
-        __list_node_base* aNext = a->next;
+        list_node_base* bPrev = b->prev;
+        list_node_base* aNext = a->next;
 
         bPrev->next = a;
         aNext->prev = b;
@@ -320,8 +357,8 @@ void jman::linked_list<T>::__swap_nodes(__list_node_base* a, __list_node_base* b
     }
     // Case 3: Nodes are not adjacent
     else {
-        __list_node_base* bNext = b->next;
-        __list_node_base* bPrev = b->prev;
+        list_node_base* bNext = b->next;
+        list_node_base* bPrev = b->prev;
 
         a->next->prev = b;
         a->prev->next = b;
@@ -336,28 +373,14 @@ void jman::linked_list<T>::__swap_nodes(__list_node_base* a, __list_node_base* b
 }
 
 template <typename T>
-jman::linked_list<T>::__list_node_base* jman::linked_list<T>::__split() noexcept
-{
-    size_type half = (m_size - 1) >> 1;
-    __list_node_base* current = m_dummy.next;
-
-    while (half > 0) {
-        current = current->next;
-        --half;
-    }
-
-    return current;
-}
-
-template <typename T>
 template <typename Comp>
-jman::linked_list<T>::__list_node_base* jman::linked_list<T>::__sort_merge(__list_node_base* left, __list_node_base* right, Comp comp)
+linked_list<T>::list_node_base* linked_list<T>::m_sort_merge(list_node_base* left, list_node_base* right, Comp comp)
 {
-    __list_node_base dummy_anchor; // local anchor for the current sub array merge
-    __list_node_base* tail = &dummy_anchor;
+    list_node_base dummy_anchor; // local anchor for the current sub array merge
+    list_node_base* tail = &dummy_anchor;
 
     while (left && right) {
-        if (comp(__value(left), __value(right))) {
+        if (comp(m_value(left), m_value(right))) {
             tail->next = left;
             left->prev = tail;
             left = left->next;
@@ -377,7 +400,7 @@ jman::linked_list<T>::__list_node_base* jman::linked_list<T>::__sort_merge(__lis
             right->prev = tail;
     }
 
-    __list_node_base* mergedHead = dummy_anchor.next;
+    list_node_base* mergedHead = dummy_anchor.next;
     if (mergedHead) mergedHead->prev = nullptr;
     return mergedHead;
 }
@@ -388,22 +411,17 @@ jman::linked_list<T>::__list_node_base* jman::linked_list<T>::__sort_merge(__lis
 
 
 template <typename T>
-jman::linked_list<T>::linked_list(size_type size)
+linked_list<T>::linked_list(size_type size)
 {
     m_dummy.next = &m_dummy;
     m_dummy.prev = &m_dummy;
     if (size == 0) return;
 
-    __list_node_base* current = &m_dummy;
+    list_node_base* current = &m_dummy;
 
-    /*
-        guard for when any of the node allocations fails or when T constructor fails in one of the node
-        lets hope that the compiler is smart enough to treat this object as unecessary and remove it completly
-        thanks to the constexpr if branch
-    */
-    auto guard = scope_guard([&] {
+    auto guard = jman::scope_guard([&] {
         if constexpr (!std::is_nothrow_default_constructible_v<T>) {
-            __clean_nodes_up_to_backwards(current);
+            m_clean_nodes_up_to_backwards(current);
 
             m_dummy.next = &m_dummy;
             m_dummy.prev = &m_dummy;
@@ -412,21 +430,21 @@ jman::linked_list<T>::linked_list(size_type size)
 
     for (size_type i = 0; i < size; ++i)
     {
-        __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-        __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+        list_node* node = m_alloc_node();
+        list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
         if constexpr (!std::is_nothrow_default_constructible_v<T>) {
             // wrap it around a try-catch block, ive heard it has zero-cost overhead entering a try-catch block anywhere and the only overhead is the stack unwinding
             // so its cheap
             JMAN_TRY {
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer));
+                jman::construct_at<T>(m_val_ptr(node));
             } JMAN_CATCH (...) {
-                ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                m_dealloc_node(node);
                 JMAN_RETHROW;
             }
         } else {
             // safe to construct since its marked as nothrow
-            jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer));
+            jman::construct_at<T>(m_val_ptr(node));
         }
 
         base_ptr->prev = current;
@@ -441,22 +459,17 @@ jman::linked_list<T>::linked_list(size_type size)
 }
 
 template <typename T>
-jman::linked_list<T>::linked_list(size_type size, const_reference value)
+linked_list<T>::linked_list(size_type size, const_reference value)
 {
     m_dummy.next = &m_dummy;
     m_dummy.prev = &m_dummy;
     if (size == 0) return;
 
-    __list_node_base* current = &m_dummy;
+    list_node_base* current = &m_dummy;
 
-    /*
-        guard for when any of the node allocations fails or when T constructor fails in one of the node
-        lets hope that the compiler is smart enough to treat this object as unecessary and remove it completly
-        thanks to the constexpr if branch
-    */
-    auto guard = scope_guard([&] {
+    auto guard = jman::scope_guard([&] {
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-            __clean_nodes_up_to_backwards(current);
+            m_clean_nodes_up_to_backwards(current);
 
             m_dummy.next = &m_dummy;
             m_dummy.prev = &m_dummy;
@@ -465,21 +478,21 @@ jman::linked_list<T>::linked_list(size_type size, const_reference value)
 
     for (size_type i = 0; i < size; ++i)
     {
-        __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-        __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+        list_node* node = m_alloc_node();
+        list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
             // wrap it around a try-catch block, ive heard it has zero-cost overhead entering a try-catch block anywhere and the only overhead is the stack unwinding
             // so its cheap
             JMAN_TRY {
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), value);
+                jman::construct_at<T>(m_val_ptr(node), value);
             } JMAN_CATCH (...) {
-                ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                m_dealloc_node(node);
                 JMAN_RETHROW;
             }
         } else {
             // safe to construct since its marked as nothrow
-            jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), value);
+            jman::construct_at<T>(m_val_ptr(node), value);
         }
 
         base_ptr->prev = current;
@@ -494,23 +507,17 @@ jman::linked_list<T>::linked_list(size_type size, const_reference value)
 }
 
 template <typename T>
-jman::linked_list<T>::linked_list(std::initializer_list<T> list)
+linked_list<T>::linked_list(std::initializer_list<T> list)
 {
     m_dummy.next = &m_dummy;
     m_dummy.prev = &m_dummy;
     if (list.size() == 0) return;
 
-    auto copy_iter = list.begin();
-    __list_node_base* current = &m_dummy;
+    list_node_base* current = &m_dummy;
     
-    /*
-        guard for when any of the node allocations fails or when T constructor fails in one of the node
-        lets hope that the compiler is smart enough to treat this object as unecessary and remove it completly
-        thanks to the constexpr if branch
-    */
-    auto guard = scope_guard([&] {
+    auto guard = jman::scope_guard([&] {
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-            __clean_nodes_up_to_backwards(current);
+            m_clean_nodes_up_to_backwards(current);
 
             m_dummy.next = &m_dummy;
             m_dummy.prev = &m_dummy;
@@ -519,21 +526,21 @@ jman::linked_list<T>::linked_list(std::initializer_list<T> list)
 
     for (size_type i = 0; i < list.size(); ++i)
     {
-        __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-        __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+        list_node* node = m_alloc_node();
+        list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
             // wrap it around a try-catch block, ive heard it has zero-cost overhead entering a try-catch block anywhere and the only overhead is the stack unwinding
             // so its cheap
             JMAN_TRY {
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), copy_iter[i]);
+                jman::construct_at<T>(m_val_ptr(node), list[i]);
             } JMAN_CATCH (...) {
-                ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                m_dealloc_node(node);
                 JMAN_RETHROW;
             }
         } else {
             // safe to construct since its marked as nothrow
-            jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), copy_iter[i]);
+            jman::construct_at<T>(m_val_ptr(node), list[i]);
         }
 
         base_ptr->prev = current;
@@ -549,23 +556,18 @@ jman::linked_list<T>::linked_list(std::initializer_list<T> list)
 
 
 template <typename T>
-jman::linked_list<T>::linked_list(const linked_list& other)
+linked_list<T>::linked_list(const linked_list& other)
 {
     m_dummy.next = &m_dummy;
     m_dummy.prev = &m_dummy;
     if (other.m_size == 0) return;
 
-    __list_node_base* current = &m_dummy;
-    __list_node_base* to_copy = other.m_dummy.next;
+    list_node_base* current = &m_dummy;
+    list_node_base* to_copy = other.m_dummy.next;
 
-    /*
-        guard for when any of the node allocations fails or when T constructor fails in one of the node
-        lets hope that the compiler is smart enough to treat this object as unecessary and remove it completly
-        thanks to the constexpr if branch
-    */
-    auto guard = scope_guard([&] {
+    auto guard = jman::scope_guard([&] {
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-            __clean_nodes_up_to_backwards(current);
+            m_clean_nodes_up_to_backwards(current);
 
             m_dummy.next = &m_dummy;
             m_dummy.prev = &m_dummy;
@@ -574,21 +576,21 @@ jman::linked_list<T>::linked_list(const linked_list& other)
 
     for (size_type i = 0; i < other.m_size; ++i)
     {
-        __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-        __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+        list_node* node = m_alloc_node();
+        list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
             // wrap it around a try-catch block, ive heard it has zero-cost overhead entering a try-catch block anywhere and the only overhead is the stack unwinding
             // so its cheap
             JMAN_TRY {
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), std::as_const(__value(to_copy)));
+                jman::construct_at<T>(m_val_ptr(node), std::as_const(m_value(to_copy)));
             } JMAN_CATCH (...) {
-                ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                m_dealloc_node(node);
                 JMAN_RETHROW;
             }
         } else {
             // safe to construct since its marked as nothrow
-            jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), std::as_const(__value(to_copy)));
+            jman::construct_at<T>(m_val_ptr(node), std::as_const(m_value(to_copy)));
         }
         to_copy = to_copy->next;
 
@@ -605,23 +607,23 @@ jman::linked_list<T>::linked_list(const linked_list& other)
 }
 
 template <typename T> 
-jman::linked_list<T>& jman::linked_list<T>::operator=(const linked_list& other)
+linked_list<T>& linked_list<T>::operator=(const linked_list& other)
 {
     if (this != &other)
     {
-        const __list_node_base* to_copy = other.m_dummy.next;
-        __list_node_base* current = &m_dummy;
-        __list_node_base* to_delete = m_dummy.next;
+        const list_node_base* to_copy = other.m_dummy.next;
+        list_node_base* current = &m_dummy;
+        list_node_base* to_delete = m_dummy.next;
         size_type constructed = 0;
 
-        auto guard = scope_guard([&] {
+        auto guard = jman::scope_guard([&] {
             if constexpr (
-                std::is_nothrow_copy_constructible_v<T> 
-                && std::is_nothrow_copy_assignable_v<T> 
+                !std::is_nothrow_copy_constructible_v<T> 
+                && !std::is_nothrow_copy_assignable_v<T> 
             ) {
                 if (constructed > m_size) { // the failed node was one of the nodes that wasnt reused, so its safe to delete
-                     __list_node_base* prev = current->prev;
-                    ::operator delete(static_cast<void*>(current), std::align_val_t{alignof(__list_node)});
+                    list_node_base* prev = current->prev;
+                    m_dealloc_node(current);
 
                     prev->next = &m_dummy;
                     m_dummy.prev = prev;
@@ -640,7 +642,7 @@ jman::linked_list<T>& jman::linked_list<T>::operator=(const linked_list& other)
                     making the program go UB, by doing this
                 */
 
-                __value(current) = __value(to_copy);
+                m_value(current) = m_value(to_copy);
 
                 to_delete = current->next;
                 to_copy = to_copy->next;
@@ -648,10 +650,10 @@ jman::linked_list<T>& jman::linked_list<T>::operator=(const linked_list& other)
                 ++constructed;
             } else {
                 // delete node and truncate
-                __list_node_base* next = to_delete->next;
+                list_node_base* next = to_delete->next;
                 
-                jman::destruct_at<T>(__ptr(to_delete));
-                ::operator delete(static_cast<void*>(to_delete), std::align_val_t{alignof(__list_node)});
+                jman::destruct_at<T>(m_val_ptr(to_delete));
+                m_dealloc_node(to_delete);
 
                 to_delete = next;
             }
@@ -663,21 +665,21 @@ jman::linked_list<T>& jman::linked_list<T>::operator=(const linked_list& other)
         for (size_type i = 0; i < diff; ++i)
         {
             // create new node
-            __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-            __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+            list_node* node = m_alloc_node();
+            list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
             if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
                 // wrap it around a try-catch block, ive heard it has zero-cost overhead entering a try-catch block anywhere and the only overhead is the stack unwinding
                 // so its cheap
                 JMAN_TRY {
-                    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), __value(to_copy));
+                    jman::construct_at<T>(m_val_ptr(node), m_value(to_copy));
                 } JMAN_CATCH (...) {
-                    ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                    m_dealloc_node(node);
                     JMAN_RETHROW;
                 }
             } else {
                 // safe to construct since its marked as nothrow
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), __value(to_copy));
+                jman::construct_at<T>(m_val_ptr(node), m_value(to_copy));
             }
 
             base_ptr->prev = current;
@@ -699,7 +701,7 @@ jman::linked_list<T>& jman::linked_list<T>::operator=(const linked_list& other)
 }
 
 template <typename T>
-jman::linked_list<T>::linked_list(linked_list&& other) noexcept
+linked_list<T>::linked_list(linked_list&& other) noexcept
 {
     m_size = other.m_size;
 
@@ -712,7 +714,7 @@ jman::linked_list<T>::linked_list(linked_list&& other) noexcept
     other.m_dummy.next = other.m_dummy.prev = &other.m_dummy;
 }
 template <typename T>
-jman::linked_list<T>& jman::linked_list<T>::operator=(linked_list&& other) noexcept
+linked_list<T>& linked_list<T>::operator=(linked_list&& other) noexcept
 {
     if (this != &other)
     {
@@ -732,7 +734,7 @@ jman::linked_list<T>& jman::linked_list<T>::operator=(linked_list&& other) noexc
     return *this;
 }
 template <typename T>
-jman::linked_list<T>::~linked_list() noexcept
+linked_list<T>::~linked_list() noexcept
 {
     clear();
 }
@@ -742,84 +744,84 @@ jman::linked_list<T>::~linked_list() noexcept
 // ####################################################################################################################
 
 template <typename T>
-jman::linked_list<T>::reference jman::linked_list<T>::at(size_type index)
+linked_list<T>::reference linked_list<T>::at(size_type index)
 {   
     if (index >= m_size) JMAN_THROW(std::out_of_range("jman::linked_list<T>::at() failed: index provided out of range."));
 
     size_type half = (m_size - 1) >> 1;
     if (index < half) // start from the head
     {
-        __list_node_base* current = m_dummy.next;
+        list_node_base* current = m_dummy.next;
 
         while (index > 0) {
             current = current->next;
             --index;
         }
 
-        return __value(current);
+        return m_value(current);
     } else { // start from the tail
-        __list_node_base* current = m_dummy.prev;
+        list_node_base* current = m_dummy.prev;
 
         while (index < (m_size - 1)) {
             current = current->prev;
             ++index;
         }
 
-        return __value(current);
+        return m_value(current);
     }
 }
 template <typename T>
-jman::linked_list<T>::const_reference jman::linked_list<T>::at(size_type index) const
+linked_list<T>::const_reference linked_list<T>::at(size_type index) const
 {
     if (index >= m_size) JMAN_THROW(std::out_of_range("jman::linked_list<T>::at() failed: index provided out of range."));
 
     size_type half = (m_size - 1) >> 1;
     if (index < half) // start from the head
     {
-        __list_node_base* current = m_dummy.next;
+        list_node_base* current = m_dummy.next;
 
         while (index > 0) {
             current = current->next;
             --index;
         }
 
-        return __value(current);
+        return m_value(current);
     } else { // start from the tail
-        __list_node_base* current = m_dummy.prev;
+        list_node_base* current = m_dummy.prev;
 
         while (index < (m_size - 1)) {
             current = current->prev;
             ++index;
         }
 
-        return __value(current);
+        return m_value(current);
     }
 }
 
 template <typename T>
-jman::linked_list<T>::iterator jman::linked_list<T>::find(const T& value) noexcept
+linked_list<T>::iterator linked_list<T>::find(const_reference value) noexcept
 {
     if (empty()) return end();
 
-    __list_node_base* current = m_dummy.next;
+    list_node_base* current = m_dummy.next;
     size_type counter = 0;
 
     while (current != &m_dummy) {
-        if (__value(current) == value) return iterator{current};
+        if (m_value(current) == value) return iterator{current};
         current = current->next;
     }
 
     return end();
 }
 template <typename T>
-jman::linked_list<T>::const_iterator jman::linked_list<T>::find(const T& value) const noexcept
+linked_list<T>::const_iterator linked_list<T>::find(const_reference value) const noexcept
 {
     if (empty()) return end();
 
-    __list_node_base* current = m_dummy.next;
+    list_node_base* current = m_dummy.next;
 
     while (current != &m_dummy) {
-        if (__value(current) == value) return iterator{current};
+        if (m_value(current) == value) return iterator{current};
         current = current->next;
     }
 
@@ -831,41 +833,41 @@ jman::linked_list<T>::const_iterator jman::linked_list<T>::find(const T& value) 
 // ####################################################################################################################
 
 template <typename T>
-void jman::linked_list<T>::clear() noexcept
+void linked_list<T>::clear() noexcept
 {
-    __clean_nodes_up_to_forward(m_dummy.next);
+    m_clean_nodes_up_to_forward(m_dummy.next);
 
     m_dummy.next = m_dummy.prev = &m_dummy;
     m_size = 0;
 }
 template <typename T>
-void jman::linked_list<T>::resize(size_type count)
+void linked_list<T>::resize(size_type count)
 {
     if (count > m_size) {
         // increase
-        __list_node_base* current = &m_dummy;
-        __list_node_base* head = nullptr;
+        list_node_base* current = &m_dummy;
+        list_node_base* head = nullptr;
 
-        auto guard = scope_guard([&] {
+        auto guard = jman::scope_guard([&] {
             if constexpr (!std::is_nothrow_default_constructible_v<T>)
-                __clean_nodes_up_to_backwards(current);
+                m_clean_nodes_up_to_backwards(current);
         });
 
         for (size_type i = m_size; i < count; ++i)
         {
-            __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-            __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+            list_node* node = m_alloc_node();
+            list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
             if constexpr (!std::is_nothrow_default_constructible_v<T>) {
                 JMAN_TRY {
-                    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer));
+                    jman::construct_at<T>(m_val_ptr(node));
                 } JMAN_CATCH (...) {
-                    ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                    m_dealloc_node(node);
                     JMAN_RETHROW;
                 }
             } else {
                 // safe to construct since its marked as nothrow
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer));
+                jman::construct_at<T>(m_val_ptr(node));
             }
 
             base_ptr->prev = current;
@@ -888,13 +890,13 @@ void jman::linked_list<T>::resize(size_type count)
         guard.dismiss(); 
     } else if (count < m_size) {
         // truncate
-        __list_node_base* current = m_dummy.prev;
+        list_node_base* current = m_dummy.prev;
         for (size_type i = m_size; i > count; --i)
         {
-            __list_node_base* prev = current->prev;
+            list_node_base* prev = current->prev;
             
-            jman::destruct_at<T>(__ptr(current));
-            ::operator delete(static_cast<void*>(current), std::align_val_t{alignof(__list_node)});
+            jman::destruct_at<T>(m_val_ptr(current));
+            m_dealloc_node(current);
 
             current = prev;
         }
@@ -906,33 +908,33 @@ void jman::linked_list<T>::resize(size_type count)
     }
 }
 template <typename T>
-void jman::linked_list<T>::resize(size_type count, const_reference value)
+void linked_list<T>::resize(size_type count, const_reference value)
 {
     if (count > m_size) {
         // increase
-        __list_node_base* current = &m_dummy;
-        __list_node_base* head = nullptr;
+        list_node_base* current = &m_dummy;
+        list_node_base* head = nullptr;
 
-        auto guard = scope_guard([&] {
+        auto guard = jman::scope_guard([&] {
             if constexpr (!std::is_nothrow_copy_constructible_v<T>)
-                __clean_nodes_up_to_backwards(current);
+                m_clean_nodes_up_to_backwards(current);
         });
 
         for (size_type i = m_size; i < count; ++i)
         {
-            __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-            __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+            list_node* node = m_alloc_node();
+            list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
             if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
                 JMAN_TRY {
-                    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), value);
+                    jman::construct_at<T>(m_val_ptr(node), value);
                 } JMAN_CATCH (...) {
-                    ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                    m_dealloc_node(node);
                     JMAN_RETHROW;
                 }
             } else {
                 // safe to construct since its marked as nothrow
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), value);
+                jman::construct_at<T>(m_val_ptr(node), value);
             }
 
             base_ptr->prev = current;
@@ -955,13 +957,13 @@ void jman::linked_list<T>::resize(size_type count, const_reference value)
         guard.dismiss(); 
     } else if (count < m_size) {
         // truncate
-        __list_node_base* current = m_dummy.prev;
+        list_node_base* current = m_dummy.prev;
         for (size_type i = m_size; i > count; --i)
         {
-            __list_node_base* prev = current->prev;
+            list_node_base* prev = current->prev;
             
-            jman::destruct_at<T>(__ptr(current));
-            ::operator delete(static_cast<void*>(current), std::align_val_t{alignof(__list_node)});
+            jman::destruct_at<T>(m_val_ptr(current));
+            m_dealloc_node(current);
 
             current = prev;
         }
@@ -974,21 +976,21 @@ void jman::linked_list<T>::resize(size_type count, const_reference value)
 }
 
 template <typename T>
-void jman::linked_list<T>::assign(size_type count, const_reference value)
+void linked_list<T>::assign(size_type count, const_reference value)
 {
     if (count == 0) return;
-    __list_node_base* current = &m_dummy;
-    __list_node_base* to_delete = m_dummy.next;
+    list_node_base* current = &m_dummy;
+    list_node_base* to_delete = m_dummy.next;
     size_type constructed = 0;
 
-    auto guard = scope_guard([&] {
+    auto guard = jman::scope_guard([&] {
         if constexpr (
             std::is_nothrow_copy_constructible_v<T> 
             && std::is_nothrow_copy_assignable_v<T> 
         ) {
             if (constructed > m_size) { // the failed node was one of the nodes that wasnt reused, so its safe to delete
-                    __list_node_base* prev = current->prev;
-                ::operator delete(static_cast<void*>(current), std::align_val_t{alignof(__list_node)});
+                list_node_base* prev = current->prev;
+                m_dealloc_node(current);
 
                 prev->next = &m_dummy;
                 m_dummy.prev = prev;
@@ -1008,17 +1010,17 @@ void jman::linked_list<T>::assign(size_type count, const_reference value)
                 making the program go UB, by doing this
             */
 
-            __value(current) = value;
+            m_value(current) = value;
 
             to_delete = current->next;
             
             ++constructed;
         } else {
             // delete node and truncate
-            __list_node_base* next = to_delete->next;
+            list_node_base* next = to_delete->next;
             
-            jman::destruct_at<T>(__ptr(to_delete));
-            ::operator delete(static_cast<void*>(to_delete), std::align_val_t{alignof(__list_node)});
+            jman::destruct_at<T>(m_val_ptr(to_delete));
+            m_dealloc_node(to_delete);
 
             to_delete = next;
         }
@@ -1030,21 +1032,21 @@ void jman::linked_list<T>::assign(size_type count, const_reference value)
     for (size_type i = 0; i < diff; ++i)
     {
         // create new node
-        __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-        __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+        list_node* node = m_alloc_node();
+        list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
             // wrap it around a try-catch block, ive heard it has zero-cost overhead entering a try-catch block anywhere and the only overhead is the stack unwinding
             // so its cheap
             JMAN_TRY {
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), value);
+                jman::construct_at<T>(m_val_ptr(node), value);
             } JMAN_CATCH (...) {
-                ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                m_dealloc_node(node);
                 JMAN_RETHROW;
             }
         } else {
             // safe to construct since its marked as nothrow
-            jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), value);
+            jman::construct_at<T>(m_val_ptr(node), value);
         }
 
         base_ptr->prev = current;
@@ -1061,29 +1063,29 @@ void jman::linked_list<T>::assign(size_type count, const_reference value)
     guard.dismiss(); 
 }
 template <typename T>
-void jman::linked_list<T>::sort()
+void linked_list<T>::sort()
 {
     sort(std::less{});
 }
 template <typename T>
 template <typename Compare> 
-void jman::linked_list<T>::sort(Compare comp)
+void linked_list<T>::sort(Compare comp)
 {
     if (m_size < 2) return;
 
     // make the head and tail nodes point to nullptr to make the sorting process easier
-    __list_node_base* flatHead = m_dummy.next;
+    list_node_base* flatHead = m_dummy.next;
     m_dummy.prev->next = nullptr;
     flatHead->prev = nullptr; 
 
     for (size_type step = 1; step < m_size; step <<= 1) {
-        __list_node_base* curr = flatHead;
-        __list_node_base* prevTail = nullptr;
+        list_node_base* curr = flatHead;
+        list_node_base* prevTail = nullptr;
         flatHead = nullptr;
 
         while (curr) {
-            __list_node_base* left = curr;
-            __list_node_base* leftTail = nullptr;
+            list_node_base* left = curr;
+            list_node_base* leftTail = nullptr;
             size_type leftSize = 0;
             
             // grab the left sub list tail
@@ -1107,8 +1109,8 @@ void jman::linked_list<T>::sort(Compare comp)
             // disconnects the left with the current right
             if (leftTail) leftTail->next = nullptr;
 
-            __list_node_base* right = curr;
-            __list_node_base* rightTail = nullptr;
+            list_node_base* right = curr;
+            list_node_base* rightTail = nullptr;
             size_type rightSize = 0;
             
             // grab the tail for the right node
@@ -1121,7 +1123,7 @@ void jman::linked_list<T>::sort(Compare comp)
             // disconnects the right with the rest of the list 
             if (rightTail) rightTail->next = nullptr;
 
-            __list_node_base* mergedHead = __sort_merge(left, right, comp);
+            list_node_base* mergedHead = m_sort_merge(left, right, comp);
 
             // links the recent merged with the already sorted section
             if (prevTail) {
@@ -1131,7 +1133,7 @@ void jman::linked_list<T>::sort(Compare comp)
                 flatHead = mergedHead;
             }
 
-            __list_node_base* mergedTail = mergedHead;
+            list_node_base* mergedTail = mergedHead;
             while (mergedTail->next)
                 mergedTail = mergedTail->next;
             prevTail = mergedTail;
@@ -1143,30 +1145,30 @@ void jman::linked_list<T>::sort(Compare comp)
     flatHead->prev = &m_dummy;
 
     // walk to the last real element
-    __list_node_base* finalTail = flatHead;
+    list_node_base* finalTail = flatHead;
     while (finalTail->next) 
         finalTail = finalTail->next;
     finalTail->next = &m_dummy;
     m_dummy.prev = finalTail;
 }
 template <typename T>
-jman::linked_list<T>::size_type jman::linked_list<T>::unique()
+linked_list<T>::size_type linked_list<T>::unique()
 {
     if (m_size < 2) return 0;
-    __list_node_base* current = m_dummy.next;
+    list_node_base* current = m_dummy.next;
     size_type removed = 0;
 
     while (current->next != &m_dummy) {
-        __list_node_base* next = current->next;
+        list_node_base* next = current->next;
 
-        if (__value(next) == __value(current))
+        if (m_value(current) == m_value(next))
         {
-            jman::destruct_at(__ptr(next));
+            jman::destruct_at(m_val_ptr(next));
 
             next->next->prev = current;
             current->next = next->next;
 
-            ::operator delete(static_cast<void*>(next), std::align_val_t{alignof(__list_node)});
+            m_dealloc_node(next);
             --m_size;
 
             next = current;
@@ -1180,23 +1182,23 @@ jman::linked_list<T>::size_type jman::linked_list<T>::unique()
 }
 template <typename T>
 template <class BinaryPredicate> 
-jman::linked_list<T>::size_type jman::linked_list<T>::unique(BinaryPredicate predicate)
+linked_list<T>::size_type linked_list<T>::unique(BinaryPredicate predicate)
 {
     if (m_size < 2) return 0;
-    __list_node_base* current = m_dummy.next;
+    list_node_base* current = m_dummy.next;
     size_type removed = 0;
 
     while (current->next != &m_dummy) {
-        __list_node_base* next = current->next;
+        list_node_base* next = current->next;
 
         if (predicate(current, next))
         {
-            jman::destruct_at(__ptr(next));
+            jman::destruct_at(m_val_ptr(next));
 
             next->next->prev = current;
             current->next = next->next;
 
-            ::operator delete(static_cast<void*>(next), std::align_val_t{alignof(__list_node)});
+            m_dealloc_node(next);
             --m_size;
 
             next = current;
@@ -1209,36 +1211,36 @@ jman::linked_list<T>::size_type jman::linked_list<T>::unique(BinaryPredicate pre
     return removed;
 }
 template <typename T>
-void jman::linked_list<T>::splice(const_iterator position, const linked_list& x)
+void linked_list<T>::splice(const_iterator position, const linked_list& x)
 {
     if (x.m_size == 0 || &x == this) return;
 
-    auto insertAt = const_cast<__list_node_base*>(position.m_ptr);
+    auto insertAt = const_cast<list_node_base*>(position.m_val_ptr);
 
-    __list_node_base* current = &m_dummy; // for safety
-    __list_node_base* head = nullptr;
-    __list_node_base* to_copy = x.m_dummy.next;
+    list_node_base* current = &m_dummy; // for safety
+    list_node_base* head = nullptr;
+    list_node_base* to_copy = x.m_dummy.next;
 
-    auto guard = scope_guard([&] {
+    auto guard = jman::scope_guard([&] {
         if constexpr (!std::is_nothrow_default_constructible_v<T>)
-            __clean_nodes_up_to_backwards(current);
+            m_clean_nodes_up_to_backwards(current);
     });
 
     for (size_type i = 0; i < x.m_size; ++i)
     {
-        __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-        __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+        list_node* node = m_alloc_node();
+        list_node_base* base_ptr = static_cast<list_node_base*>(node);
 
         if constexpr (!std::is_nothrow_default_constructible_v<T>) {
             JMAN_TRY {
-                jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), __value(to_copy));
+                jman::construct_at<T>(m_val_ptr(node), m_value(to_copy));
             } JMAN_CATCH (...) {
-                ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+                m_dealloc_node(node);
                 JMAN_RETHROW;
             }
         } else {
             // safe to construct since its marked as nothrow
-            jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), __value(to_copy));
+            jman::construct_at<T>(m_val_ptr(node), m_value(to_copy));
         }
 
         base_ptr->prev = current;
@@ -1266,11 +1268,11 @@ void jman::linked_list<T>::splice(const_iterator position, const linked_list& x)
     guard.dismiss(); 
 }
 template <typename T>
-void jman::linked_list<T>::splice(const_iterator position, linked_list&& x) noexcept
+void linked_list<T>::splice(const_iterator position, linked_list&& x) noexcept
 {
     if (x.m_size == 0 || &x == this) return;
 
-    auto insertAt = const_cast<__list_node_base*>(position.m_ptr);
+    auto insertAt = const_cast<list_node_base*>(position.m_val_ptr);
     insertAt->prev->next = x.m_dummy.next;
 
     x.m_dummy.next->prev = insertAt->prev;
@@ -1286,21 +1288,21 @@ void jman::linked_list<T>::splice(const_iterator position, linked_list&& x) noex
 
 
 template <typename T>
-void jman::linked_list<T>::reverse() noexcept
+void linked_list<T>::reverse() noexcept
 {
     if (m_size < 2) return;
 
-    __list_node_base* l = m_dummy.next;
-    __list_node_base* r = m_dummy.prev;
+    list_node_base* l = m_dummy.next;
+    list_node_base* r = m_dummy.prev;
 
     size_type li = 0;
     size_type ri = m_size - 1;
 
     while (li < ri) {
-        __list_node_base* nextR = r->prev;
-        __list_node_base* nextL = l->next;
+        list_node_base* nextR = r->prev;
+        list_node_base* nextL = l->next;
 
-        __swap_nodes(l, r);
+        m_swap_nodes(l, r);
         r = nextR;
         l = nextL;
 
@@ -1317,12 +1319,12 @@ void jman::linked_list<T>::reverse() noexcept
 template <typename T>
 template <typename TT>
 requires std::is_convertible_v<TT, T>
-void jman::linked_list<T>::push_front(TT&& value)
+void linked_list<T>::push_front(TT&& value)
 {
-    __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-    __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+    list_node* node = m_alloc_node();
+    list_node_base* base_ptr = static_cast<list_node_base*>(node);
     
-    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), static_cast<T>(std::forward<TT>(value)));
+    jman::construct_at<T>(m_val_ptr(node), static_cast<T>(std::forward<TT>(value)));
 
     base_ptr->next = m_dummy.next;
     base_ptr->prev = &m_dummy;
@@ -1337,12 +1339,12 @@ void jman::linked_list<T>::push_front(TT&& value)
 template <typename T>
 template <typename TT>
 requires std::is_convertible_v<TT, T>
-void jman::linked_list<T>::push_back(TT&& value)
+void linked_list<T>::push_back(TT&& value)
 {
-    __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-    __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+    list_node* node = m_alloc_node();
+    list_node_base* base_ptr = static_cast<list_node_base*>(node);
     
-    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), static_cast<T>(std::forward<TT>(value)));
+    jman::construct_at<T>(m_val_ptr(node), static_cast<T>(std::forward<TT>(value)));
 
     base_ptr->next = &m_dummy;
     base_ptr->prev = m_dummy.prev;
@@ -1356,12 +1358,12 @@ void jman::linked_list<T>::push_back(TT&& value)
 template <typename T>
 template <typename ...Args>
 requires std::is_constructible_v<T, Args...>
-void jman::linked_list<T>::emplace_front(Args&&... args)
+void linked_list<T>::emplace_front(Args&&... args)
 {
-    __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-    __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+    list_node* node = m_alloc_node();
+    list_node_base* base_ptr = static_cast<list_node_base*>(node);
     
-    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), std::forward<Args>(args)...);
+    jman::construct_at<T>(m_val_ptr(node), std::forward<Args>(args)...);
 
     base_ptr->next = m_dummy.next;
     base_ptr->prev = &m_dummy;
@@ -1374,12 +1376,12 @@ void jman::linked_list<T>::emplace_front(Args&&... args)
 template <typename T>
 template <typename ...Args>
 requires std::is_constructible_v<T, Args...>
-void jman::linked_list<T>::emplace_back(Args&&... args)
+void linked_list<T>::emplace_back(Args&&... args)
 {
-    __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-    __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+    list_node* node = m_alloc_node();
+    list_node_base* base_ptr = static_cast<list_node_base*>(node);
     
-    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), std::forward<Args>(args)...);
+    jman::construct_at<T>(m_val_ptr(node), std::forward<Args>(args)...);
 
     base_ptr->next = &m_dummy;
     base_ptr->prev = m_dummy.prev;
@@ -1391,45 +1393,45 @@ void jman::linked_list<T>::emplace_back(Args&&... args)
 }
 
 template <typename T>
-void jman::linked_list<T>::pop_front()
+void linked_list<T>::pop_front()
 {
     if (empty()) return;
 
-    __list_node_base* node = m_dummy.next;
-    jman::destruct_at(__ptr(node));
+    list_node_base* node = m_dummy.next;
+    jman::destruct_at(m_val_ptr(node));
 
     node->next->prev = node->prev;
     node->prev->next = node->next;
 
-    ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+    m_dealloc_node(node);
     --m_size;
 }
 template <typename T>
-void jman::linked_list<T>::pop_back()
+void linked_list<T>::pop_back()
 {
     if (empty()) return;
 
-    __list_node_base* node = m_dummy.next;
-    jman::destruct_at(__ptr(node));
+    list_node_base* node = m_dummy.next;
+    jman::destruct_at(m_val_ptr(node));
 
     node->next->prev = node->prev;
     node->prev->next = node->next;
 
-    ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+    m_dealloc_node(node);
     --m_size;
 }
 
 template <typename T>
 template <typename TT>
 requires std::is_convertible_v<TT, T>
-jman::linked_list<T>::iterator jman::linked_list<T>::insert(size_type index, TT&& value)
+linked_list<T>::iterator linked_list<T>::insert(size_type index, TT&& value)
 {
     return insert(at(index), std::forward<TT>(value));
 }
 template <typename T>
 template <typename ...Args>
 requires std::is_constructible_v<T, Args...>
-jman::linked_list<T>::iterator jman::linked_list<T>::emplace(size_type index, Args&&... args)
+linked_list<T>::iterator linked_list<T>::emplace(size_type index, Args&&... args)
 {
     return emplace(at(index), std::forward<Args>(args)...);
 }
@@ -1437,19 +1439,19 @@ jman::linked_list<T>::iterator jman::linked_list<T>::emplace(size_type index, Ar
 template <typename T>
 template <typename TT>
 requires std::is_convertible_v<TT, T>
-jman::linked_list<T>::iterator jman::linked_list<T>::insert(iterator it, TT&& value)
+linked_list<T>::iterator linked_list<T>::insert(iterator it, TT&& value)
 {
     if (it == end()) return end();
-    __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-    __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+    list_node* node = m_alloc_node();
+    list_node_base* base_ptr = static_cast<list_node_base*>(node);
     
-    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), static_cast<T>(std::forward<TT>(value)));   
+    jman::construct_at<T>(m_val_ptr(node), static_cast<T>(std::forward<TT>(value)));   
     
-    base_ptr->next = it.m_ptr;
-    base_ptr->prev = it.m_ptr->prev;
+    base_ptr->next = it.m_val_ptr;
+    base_ptr->prev = it.m_val_ptr->prev;
 
-    it.m_ptr->prev->next = base_ptr;
-    it.m_ptr->prev = base_ptr;
+    it.m_val_ptr->prev->next = base_ptr;
+    it.m_val_ptr->prev = base_ptr;
 
     ++m_size;
 
@@ -1458,19 +1460,19 @@ jman::linked_list<T>::iterator jman::linked_list<T>::insert(iterator it, TT&& va
 template <typename T>
 template <typename ...Args>
 requires std::is_constructible_v<T, Args...>
-jman::linked_list<T>::iterator jman::linked_list<T>::emplace(iterator it, Args&&... args)
+linked_list<T>::iterator linked_list<T>::emplace(iterator it, Args&&... args)
 {
     if (it == end()) return end();
-    __list_node* node = static_cast<__list_node*>(::operator new(sizeof(__list_node), std::align_val_t{alignof(__list_node)}));
-    __list_node_base* base_ptr = static_cast<__list_node_base*>(node);
+    list_node* node = m_alloc_node();
+    list_node_base* base_ptr = static_cast<list_node_base*>(node);
     
-    jman::construct_at<T>(reinterpret_cast<T*>(&node->buffer), std::forward<Args>(args)...);   
+    jman::construct_at<T>(m_val_ptr(node), std::forward<Args>(args)...);   
     
-    base_ptr->next = it.m_ptr;
-    base_ptr->prev = it.m_ptr->prev;
+    base_ptr->next = it.m_val_ptr;
+    base_ptr->prev = it.m_val_ptr->prev;
 
-    it.m_ptr->prev->next = base_ptr;
-    it.m_ptr->prev = base_ptr;
+    it.m_val_ptr->prev->next = base_ptr;
+    it.m_val_ptr->prev = base_ptr;
 
     ++m_size;
 
@@ -1478,21 +1480,23 @@ jman::linked_list<T>::iterator jman::linked_list<T>::emplace(iterator it, Args&&
 }
 
 template <typename T>
-void jman::linked_list<T>::erase(iterator it)
+void linked_list<T>::erase(iterator it)
 {
     if (empty()) return;
     if (it == end()) return;
-    __list_node_base* node = it.m_ptr;
-    jman::destruct_at(__ptr(node));
+    list_node_base* node = it.m_val_ptr;
+    jman::destruct_at(m_val_ptr(node));
 
     node->next->prev = node->prev;
     node->prev->next = node->next;
 
-    ::operator delete(static_cast<void*>(node), std::align_val_t{alignof(__list_node)});
+    m_dealloc_node(node);
     --m_size;
 }
 template <typename T>
-void jman::linked_list<T>::erase(size_type index)
+void linked_list<T>::erase(size_type index)
 {
     erase(at(index));
 }
+
+} // namespace jman

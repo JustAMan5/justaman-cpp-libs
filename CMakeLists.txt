@@ -18,6 +18,14 @@ if(PROJECT_IS_TOP_LEVEL) # copy the compile commands to the source dir
     )
 endif()
 
+# if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#     add_compile_options(-ftime-trace)
+# elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+#     add_compile_options(-ftime-report)
+# else()
+#     message(WARNING "Active compiler doesnt support time profiling")
+# endif()
+
 add_subdirectory(libs)
 if(PROJECT_IS_TOP_LEVEL)
     add_subdirectory(tests)

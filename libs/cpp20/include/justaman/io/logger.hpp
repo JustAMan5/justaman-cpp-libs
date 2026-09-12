@@ -35,19 +35,19 @@ namespace jman
     inline constexpr log_level log_exception =      log_level::exception;
     inline constexpr log_level log_none =           log_level::none;
 
-    namespace 
+    namespace detail
     {
-        struct configs 
+        struct logger_configs 
         {
             public:
             
-                static configs& get() noexcept 
+                static logger_configs& get() noexcept 
                 {
-                    static configs obj;
+                    static logger_configs obj;
                     return obj;
                 }
             
-                configs& set_level(log_level level) noexcept
+                logger_configs& set_level(log_level level) noexcept
                 {
                     m_level_flag = level;
                     return *this;
@@ -58,13 +58,13 @@ namespace jman
 
             private:
                 log_level m_level_flag = log_level::warn;
-                configs() {}
+                logger_configs() {}
         };
     }
 
-    JMAN_FORCE_INLINE configs& configure_logs() noexcept
+    JMAN_FORCE_INLINE detail::logger_configs& configure_logs() noexcept
     {
-        return configs::get();
+        return detail::logger_configs::get();
     }
 
     // #########################################################################################

@@ -1,12 +1,14 @@
 /build/
 /build*/
 /out/
+
 /.vscode
 
 /CMakeUserPresets.json
+/CMakeLists.txt.user*
+/compile_commands.json
 
 /.cache/
-/CMakeLists.txt.user*
-
-/compile_commands.json
 /.clangd/index/
+
+/.env

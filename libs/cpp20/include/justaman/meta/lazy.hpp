@@ -13,12 +13,12 @@ namespace jman
 {
     template <class T> class lazy_value;
 
-    namespace __detail 
+    namespace detail 
     {
         template<typename _Tp>
-        inline constexpr bool __is_lazy_value_v = false;
+        inline constexpr bool is_lazy_value_v = false;
         template<typename _Tp>
-        inline constexpr bool __is_lazy_value_v<lazy_value<_Tp>> = true;    
+        inline constexpr bool is_lazy_value_v<lazy_value<_Tp>> = true;    
     }
 
     class bad_lazy_access: public std::exception
@@ -48,11 +48,11 @@ namespace jman
         bool                    m_initialized       {false};
     
         private:
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T*        __ptr() noexcept { return std::launder(reinterpret_cast<T*>(m_buffer)); }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T*  __ptr() const noexcept { return std::launder(reinterpret_cast<const T*>(m_buffer)); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T*        m_ptr() noexcept { return std::launder(reinterpret_cast<T*>(m_buffer)); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T*  m_ptr() const noexcept { return std::launder(reinterpret_cast<const T*>(m_buffer)); }
 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&        __value() noexcept { return *std::launder(reinterpret_cast<T*>(m_buffer)); }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&  __value() const noexcept { return *std::launder(reinterpret_cast<const T*>(m_buffer)); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&        m_value() noexcept { return *std::launder(reinterpret_cast<T*>(m_buffer)); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&  m_value() const noexcept { return *std::launder(reinterpret_cast<const T*>(m_buffer)); }
 
         public:
             constexpr lazy_value() noexcept = default;
@@ -151,7 +151,7 @@ constexpr jman::lazy_value<T>::lazy_value(const lazy_value& other) noexcept(std:
     if constexpr (!std::is_trivially_copy_constructible_v<T>) {
         if (other.m_initialized == false) return;
 
-        jman::construct_at<T>(&m_buffer, other.__value());
+        jman::construct_at<T>(&m_buffer, other.m_value());
         m_initialized = true;
     }
 }
@@ -163,7 +163,7 @@ constexpr jman::lazy_value<T>::lazy_value& jman::lazy_value<T>::lazy_value::oper
         if constexpr (!std::is_trivially_copy_constructible_v<T>) {
             if (other.m_initialized == false) return *this;
 
-            jman::construct_at<T>(&m_buffer, other.__value());
+            jman::construct_at<T>(&m_buffer, other.m_value());
             m_initialized = true;
         }
     }
@@ -177,7 +177,7 @@ constexpr jman::lazy_value<T>::lazy_value(lazy_value&& other) noexcept
     if constexpr (!std::is_trivially_move_constructible_v<T>) {
         if (other.m_initialized == false) return;
 
-        jman::construct_at<T>(&m_buffer, std::move(other.__value()));
+        jman::construct_at<T>(&m_buffer, std::move(other.m_value()));
         m_initialized = true;
         other.m_initialized = false;
     }
@@ -190,7 +190,7 @@ constexpr jman::lazy_value<T>::lazy_value& jman::lazy_value<T>::lazy_value::oper
         if constexpr (!std::is_trivially_copy_constructible_v<T>) {
             if (other.m_initialized == false) return *this;
 
-            jman::construct_at<T>(&m_buffer, std::move(other.__value()));
+            jman::construct_at<T>(&m_buffer, std::move(other.m_value()));
             m_initialized = true;
             other.m_initialized = false;
         }
@@ -209,7 +209,7 @@ constexpr T& jman::lazy_value<T>::get() noexcept(std::is_nothrow_default_constru
     if (!m_initialized)
         jman::construct_at<T>(&m_buffer);
 
-    return __value();
+    return m_value();
 }
 template <class T>
 constexpr T& jman::lazy_value<T>::operator*() noexcept(std::is_nothrow_default_constructible_v<T>)
@@ -222,7 +222,7 @@ constexpr T* jman::lazy_value<T>::operator->() noexcept(std::is_nothrow_default_
     if (!m_initialized)
         jman::construct_at<T>(&m_buffer);
 
-    return __ptr();
+    return m_ptr();
 }
 
 
@@ -235,7 +235,7 @@ const T& jman::lazy_value<T>::get() const
     if (!m_initialized)
         throw bad_lazy_access();
 
-    return __value();
+    return m_value();
 }
 template <class T>
 #if __cpp_lib_constexpr_exceptions >= 202502L
@@ -246,7 +246,7 @@ const T& jman::lazy_value<T>::operator*() const
     if (!m_initialized)
         throw bad_lazy_access();
 
-    return __value();
+    return m_value();
 }
 template <class T>
 #if __cpp_lib_constexpr_exceptions >= 202502L
@@ -257,7 +257,7 @@ const T* jman::lazy_value<T>::operator->() const
     if (!m_initialized)
         throw bad_lazy_access();
 
-    return __ptr();
+    return m_ptr();
 }
 
 template <class T>
@@ -286,13 +286,13 @@ template <typename F>
 constexpr auto jman::lazy_value<T>::and_then(F&& f) &
 {
     using R = std::remove_cvref_t<std::invoke_result_t<F, T&>>;
-    static_assert(__detail::__is_lazy_value_v<R>,
+    static_assert(detail::is_lazy_value_v<R>,
         "The function passed to std::lazy_value<T>::and_then "
 	    "must return a std::lazy_value"
     );
 
     if (initialized())
-        return jman::invoke(std::forward<F>(f), __value());
+        return jman::invoke(std::forward<F>(f), m_value());
     else
         return R{};
 }
@@ -302,13 +302,13 @@ template <typename F>
 constexpr auto jman::lazy_value<T>::and_then(F&& f) const&
 {
     using R = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
-    static_assert(__detail::__is_lazy_value_v<R>,
+    static_assert(detail::is_lazy_value_v<R>,
         "The function passed to std::lazy_value<T>::and_then "
 	    "must return a std::lazy_value"
     );
 
     if (initialized())
-        return jman::invoke(std::forward<F>(f), __value());
+        return jman::invoke(std::forward<F>(f), m_value());
     else
         return R{};
 }
@@ -318,13 +318,13 @@ template <typename F>
 constexpr auto jman::lazy_value<T>::and_then(F&& f) &&
 {
     using R = std::remove_cvref_t<std::invoke_result_t<F, T>>;
-    static_assert(__detail::__is_lazy_value_v<R>,
+    static_assert(detail::is_lazy_value_v<R>,
         "The function passed to std::lazy_value<T>::and_then "
 	    "must return a std::lazy_value"
     );
 
     if (initialized())
-        return jman::invoke(std::forward<F>(f), __value());
+        return jman::invoke(std::forward<F>(f), m_value());
     else
         return R{};
 }
@@ -334,13 +334,13 @@ template <typename F>
 constexpr auto jman::lazy_value<T>::and_then(F&& f) const&&
 {
     using R = std::remove_cvref_t<std::invoke_result_t<F, const T>>;
-    static_assert(__detail::__is_lazy_value_v<R>,
+    static_assert(detail::is_lazy_value_v<R>,
         "The function passed to std::lazy_value<T>::and_then "
 	    "must return a std::lazy_value"
     );
 
     if (initialized())
-        return jman::invoke(std::forward<F>(f), __value());
+        return jman::invoke(std::forward<F>(f), m_value());
     else
         return R{};
 }

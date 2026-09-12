@@ -25,7 +25,12 @@ namespace jman
         public:
             explicit scope_guard(F&& f) : cleanup(std::move(f)) {}
             ~scope_guard() noexcept { if (active) jman::invoke(cleanup); }
+            
             scope_guard(const scope_guard&) = delete;
+            scope_guard& operator=(const scope_guard&) = delete;
+            scope_guard(scope_guard&&) = delete;
+            scope_guard& operator=(scope_guard&&) = delete;
+
             void dismiss() noexcept { active = false; } 
     };  
 }
