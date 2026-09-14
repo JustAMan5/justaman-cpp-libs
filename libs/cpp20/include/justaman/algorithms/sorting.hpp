@@ -3,147 +3,30 @@
 #include <cmath>
 #include <iterator>
 #include <type_traits>
-#include <vector>
+#include <justaman/containers/vector.hpp> // forced for merge sort for the temp buffer
 #include <justaman/utils/attributes.h>
 
 namespace jman 
 {
-    template <typename RandomAccessIterator, class Comp>
+    template <typename Iterator, typename Comp>
     concept is_nothrow_sortable_comp =
-            std::is_nothrow_invocable_r_v<
-                bool, 
-                Comp, 
-                std::iter_value_t<RandomAccessIterator>, 
-                std::iter_value_t<RandomAccessIterator>
-            > && std::is_nothrow_swappable_v<std::iter_value_t<RandomAccessIterator>>;
+        std::random_access_iterator<Iterator> &&
+        std::is_nothrow_invocable_r_v<
+            bool, 
+            Comp, 
+            std::iter_reference_t<Iterator>, 
+            std::iter_reference_t<Iterator>
+        > && 
+        // ensure elements can be swapped safely
+        std::is_nothrow_swappable_v<std::iter_value_t<Iterator>> &&
+        // ensure elements can be moved/assigned safely during sorting partitioning
+        std::is_nothrow_move_constructible_v<std::iter_value_t<Iterator>> &&
+        std::is_nothrow_move_assignable_v<std::iter_value_t<Iterator>>;
 
-    template <typename RandomAccessIterator>
-    concept is_nothrow_sortable =
-            std::is_nothrow_swappable_v<std::iter_value_t<RandomAccessIterator>>;
-}
+    template <typename Iterator>
+    concept is_nothrow_sortable = 
+        is_nothrow_sortable_comp<Iterator, std::less<std::iter_value_t<Iterator>>>;
 
-namespace jman::detail
-{
-    struct intro_sort_task 
-    {
-        std::size_t left;
-        std::size_t right;
-        std::size_t depth;
-    };
-
-    template <typename RandomAccessIterator, class Comp>
-    requires std::random_access_iterator<RandomAccessIterator> &&
-            std::indirect_strict_weak_order<Comp, RandomAccessIterator>
-    RandomAccessIterator qsort_partition(RandomAccessIterator start, RandomAccessIterator end, Comp comp)
-        noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Comp>) 
-    {
-        auto mid = start + (end - start) / 2;
-        auto last = --end;
-
-        if (comp(*mid, *start)) std::swap(*mid, *start);
-        if (comp(*last, *start)) std::swap(*last, *start);
-        if (comp(*mid, *last)) std::swap(*mid, *last);
-        
-        auto&& pivot = *last;
-        auto i = start;
-
-        for (auto j = start; j != last; ++j) {
-            if (comp(*j, pivot)) {
-                std::swap(*i, *j);
-                ++i;
-            }
-        }
-        
-        std::swap(*i, *last);
-
-        return i;
-    }
-
-    template <typename RandomAccessIterator, class Comp>
-    requires std::random_access_iterator<RandomAccessIterator> &&
-            std::indirect_strict_weak_order<Comp, RandomAccessIterator>
-    void hsort_heapify(RandomAccessIterator start, RandomAccessIterator end, std::size_t i, Comp comp) 
-        noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Comp>)
-    {
-        std::size_t length = end - start;
-        
-        while (true)
-        {
-            std::size_t largest = i;
-            std::size_t l = 2 * i + 1;
-            std::size_t r = 2 * i + 2;
-
-            // if left child is larger set it as largest
-            if (l < length && !comp(start[l], start[largest]))
-                largest = l;
-
-            // if right child is larger set it as largest
-            if (r < length && !comp(start[r], start[largest]))
-                largest = r;
-
-            // if largest is not the root swap them and heapify the sub tree
-            if (largest == i)
-                break;
-
-            std::swap(start[i], start[largest]);
-            i = largest;
-        }
-    }
-
-    template <typename RandomAccessIterator, class Comp>
-    requires std::random_access_iterator<RandomAccessIterator> &&
-            std::indirect_strict_weak_order<Comp, RandomAccessIterator>
-    void msort__merge(
-        RandomAccessIterator L1, 
-        RandomAccessIterator R1, 
-        RandomAccessIterator L2, 
-        RandomAccessIterator R2, 
-        std::vector<std::iter_value_t<RandomAccessIterator>>& temp,
-        Comp comp
-    )
-        noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Comp>)
-    {
-        std::size_t i = 0;
-        auto start1 = L1;
-        auto start2 = L2;
-
-
-        // in here we r using <= because the code treats R1 and R2 as the last actual element and not the next position after the last
-        while (L1 <= R1 && L2 <= R2)
-        {
-            if (comp(*L1, *L2)) {
-                temp[i] = std::move_if_noexcept(*L1);
-                ++i;
-                ++L1;
-            }
-            else {
-                temp[i] = std::move_if_noexcept(*L2);
-                ++i;
-                ++L2;
-            }
-        }
-
-        // these two r in case there is any element left that we cant compare with another
-
-        while (L1 <= R1) 
-        {
-            temp[i] = std::move_if_noexcept(*L1);
-            ++i;
-            ++L1;
-        }
-
-        while (L2 <= R2)
-        {
-            temp[i] = std::move_if_noexcept(*L2);
-            ++i;
-            ++L2;
-        }
-    }
-
-}
-
-namespace jman 
-{
 
     /**
         @brief 
@@ -156,17 +39,16 @@ namespace jman
             best general purpose sort due to its friendly cache locality
     */
     ///@{
-    template <typename RandomAccessIterator, typename Compare>
-    requires std::random_access_iterator<RandomAccessIterator> && 
-             std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-    void qsort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-        noexcept(is_nothrow_sortable_comp<RandomAccessIterator, Compare>);
+    template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+    void qsort(Iterator start, Iterator end, Compare comp)
+        noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
-    template <typename RandomAccessIterator>
-    requires std::random_access_iterator<RandomAccessIterator>
-    JMAN_FORCE_INLINE void qsort(RandomAccessIterator start, RandomAccessIterator end)
-        noexcept(is_nothrow_sortable<RandomAccessIterator>);
+    template <std::random_access_iterator Iterator>
+    JMAN_FORCE_INLINE void qsort(Iterator start, Iterator end)
+        noexcept(is_nothrow_sortable<Iterator>);
     ///@}
+
+    
     /**
         @brief
             msort (aka. merge sort) copies the array in sub arrays and sorts those sub arrays and merges them to make the final result
@@ -181,14 +63,11 @@ namespace jman
             uses the same tricks in this post https://www.baeldung.com/cs/non-recursive-merge-sort
     */
     ///@{
-    template <typename RandomAccessIterator, typename Compare>
-    requires std::random_access_iterator<RandomAccessIterator> && 
-             std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-    void msort(RandomAccessIterator start, RandomAccessIterator end, Compare comp); // no noexcept since it needs to allocate space for the temp vector for the copies
+    template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+    void msort(Iterator start, Iterator end, Compare comp); // no noexcept since it needs to allocate space for the temp vector for the copies
 
-    template <typename RandomAccessIterator>
-    requires std::random_access_iterator<RandomAccessIterator>
-    JMAN_FORCE_INLINE void msort(RandomAccessIterator start, RandomAccessIterator end);
+    template <std::random_access_iterator Iterator>
+    JMAN_FORCE_INLINE void msort(Iterator start, Iterator end);
     ///@}
     /**
         @brief 
@@ -202,16 +81,13 @@ namespace jman
             dont use when raw speed is prioritized due to its poor cache friendliness
     */
     ///@{
-    template <typename RandomAccessIterator, typename Compare>
-    requires std::random_access_iterator<RandomAccessIterator> && 
-             std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-    void hsort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-        noexcept(is_nothrow_sortable_comp<RandomAccessIterator, Compare>);
+    template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+    void hsort(Iterator start, Iterator end, Compare comp)
+        noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
-    template <typename RandomAccessIterator>
-    requires std::random_access_iterator<RandomAccessIterator>
-    void hsort(RandomAccessIterator start, RandomAccessIterator end)
-        noexcept(is_nothrow_sortable<RandomAccessIterator>);
+    template <std::random_access_iterator Iterator>
+    void hsort(Iterator start, Iterator end)
+        noexcept(is_nothrow_sortable<Iterator>);
     ///@}
     /**
         @brief 
@@ -224,16 +100,13 @@ namespace jman
             use it for small datasets (around 20 or less) or datasets that are nearly sorted
     */
     ///@{
-    template <typename RandomAccessIterator, typename Compare>
-    requires std::random_access_iterator<RandomAccessIterator> && 
-             std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-    void isort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-        noexcept(is_nothrow_sortable_comp<RandomAccessIterator, Compare>);
+    template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+    void isort(Iterator start, Iterator end, Compare comp)
+        noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
-    template <typename RandomAccessIterator>
-    requires std::random_access_iterator<RandomAccessIterator>
-    void isort(RandomAccessIterator start, RandomAccessIterator end)
-        noexcept(is_nothrow_sortable<RandomAccessIterator>);
+    template <std::random_access_iterator Iterator>
+    void isort(Iterator start, Iterator end)
+        noexcept(is_nothrow_sortable<Iterator>);
     ///@}
     /**
         @brief 
@@ -249,16 +122,13 @@ namespace jman
             for any other scenario it performs very poorly
     */
     ///@{
-    template <typename RandomAccessIterator, typename Compare>
-    requires std::random_access_iterator<RandomAccessIterator> && 
-             std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-    void ssort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-        noexcept(is_nothrow_sortable_comp<RandomAccessIterator, Compare>);
+    template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+    void ssort(Iterator start, Iterator end, Compare comp)
+        noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
-    template <typename RandomAccessIterator>
-    requires std::random_access_iterator<RandomAccessIterator>
-    void ssort(RandomAccessIterator start, RandomAccessIterator end)
-        noexcept(is_nothrow_sortable<RandomAccessIterator>);
+    template <std::random_access_iterator Iterator>
+    void ssort(Iterator start, Iterator end)
+        noexcept(is_nothrow_sortable<Iterator>);
     ///@}
     /**
         @brief 
@@ -273,29 +143,147 @@ namespace jman
             best for general purpose large randomly unordered arrays
     */
     ///@{
-    template <typename RandomAccessIterator, typename Compare>
-    requires std::random_access_iterator<RandomAccessIterator> && 
-             std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-    void sort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-        noexcept(is_nothrow_sortable_comp<RandomAccessIterator, Compare>);
+    template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+    void sort(Iterator start, Iterator end, Compare comp)
+        noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
-    template <typename RandomAccessIterator>
-    requires std::random_access_iterator<RandomAccessIterator>
-    void sort(RandomAccessIterator start, RandomAccessIterator end)
-        noexcept(jman::is_nothrow_sortable<RandomAccessIterator>);
+    template <std::random_access_iterator Iterator>
+    void sort(Iterator start, Iterator end)
+        noexcept(jman::is_nothrow_sortable<Iterator>);
     ///@}
+} // namespace jman
+
+// #######################################################################################
+// --------------------------------- INTERNAL HELPERS ----------------------------------//
+// #######################################################################################
+
+namespace jman::detail
+{
+
+struct intro_sort_task 
+{
+    std::size_t left;
+    std::size_t right;
+    std::size_t depth;
+};
+
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
+Iterator qsort_partition(Iterator start, Iterator end, Comp comp)
+    noexcept(jman::is_nothrow_sortable_comp<Iterator, Comp>) 
+{
+    auto mid = start + (end - start) / 2;
+    auto last = --end;
+
+    if (comp(*mid, *start)) std::swap(*mid, *start);
+    if (comp(*last, *start)) std::swap(*last, *start);
+    if (comp(*mid, *last)) std::swap(*mid, *last);
+    
+    auto&& pivot = *last;
+    auto i = start;
+
+    for (auto j = start; j != last; ++j) {
+        if (comp(*j, pivot)) {
+            std::swap(*i, *j);
+            ++i;
+        }
+    }
+    
+    std::swap(*i, *last);
+
+    return i;
 }
 
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
+void hsort_heapify(Iterator start, Iterator end, std::size_t i, Comp comp) 
+    noexcept(jman::is_nothrow_sortable_comp<Iterator, Comp>)
+{
+    std::size_t length = end - start;
+    
+    while (true)
+    {
+        std::size_t largest = i;
+        std::size_t l = 2 * i + 1;
+        std::size_t r = 2 * i + 2;
+
+        // if left child is larger set it as largest
+        if (l < length && !comp(start[l], start[largest]))
+            largest = l;
+
+        // if right child is larger set it as largest
+        if (r < length && !comp(start[r], start[largest]))
+            largest = r;
+
+        // if largest is not the root swap them and heapify the sub tree
+        if (largest == i)
+            break;
+
+        std::swap(start[i], start[largest]);
+        i = largest;
+    }
+}
+
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
+void msort__merge(
+    Iterator L1, Iterator R1, 
+    Iterator L2, Iterator R2, 
+    jman::vector<std::iter_value_t<Iterator>>& temp,
+    Comp comp
+)
+    noexcept(jman::is_nothrow_sortable_comp<Iterator, Comp>)
+{
+    std::size_t i = 0;
+    auto start1 = L1;
+    auto start2 = L2;
+
+
+    // in here we r using <= because the code treats R1 and R2 as the last actual element and not the next position after the last
+    while (L1 <= R1 && L2 <= R2)
+    {
+        if (comp(*L1, *L2)) {
+            temp[i] = std::move_if_noexcept(*L1);
+            ++i;
+            ++L1;
+        }
+        else {
+            temp[i] = std::move_if_noexcept(*L2);
+            ++i;
+            ++L2;
+        }
+    }
+
+    // these two r in case there is any element left that we cant compare with another
+
+    while (L1 <= R1) 
+    {
+        temp[i] = std::move_if_noexcept(*L1);
+        ++i;
+        ++L1;
+    }
+
+    while (L2 <= R2)
+    {
+        temp[i] = std::move_if_noexcept(*L2);
+        ++i;
+        ++L2;
+    }
+}
+
+} // namespace jman::detail
+
+// #######################################################################################
+// ---------------------------------- IMPLEMENTATIONS ----------------------------------//
+// #######################################################################################
+
+namespace jman 
+{
 
 // #################################################################################
 // --------------------------------- QUICK SORT ----------------------------------//
 // #################################################################################
 
-template <typename RandomAccessIterator, typename Compare>
-    requires std::random_access_iterator<RandomAccessIterator> && 
-             std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-void jman::qsort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-    noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Compare>)
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+void qsort(Iterator start, Iterator end, Compare comp)
+    noexcept(jman::is_nothrow_sortable_comp<Iterator, Compare>)
 {
     if (end - start <= 1) return; // must have 2 or more elements
 
@@ -307,7 +295,7 @@ void jman::qsort(RandomAccessIterator start, RandomAccessIterator end, Compare c
         64 partitions, since we store the start and end we multiply by two so we end up with
         a 128 maximum that in reality is just 1kb of stack usage, very small for modern devices
     */
-    RandomAccessIterator stack[128];
+    Iterator stack[128];
     int top = -1;
 
     stack[++top] = start;
@@ -343,10 +331,9 @@ void jman::qsort(RandomAccessIterator start, RandomAccessIterator end, Compare c
     }
 }
 
-template <typename RandomAccessIterator>
-requires std::random_access_iterator<RandomAccessIterator>
-JMAN_FORCE_INLINE void jman::qsort(RandomAccessIterator first, RandomAccessIterator last)
-    noexcept(jman::is_nothrow_sortable<RandomAccessIterator>)
+template <std::random_access_iterator Iterator>
+JMAN_FORCE_INLINE void qsort(Iterator first, Iterator last)
+    noexcept(is_nothrow_sortable<Iterator>)
 {
     qsort(first, last, std::less{});
 }
@@ -356,17 +343,15 @@ JMAN_FORCE_INLINE void jman::qsort(RandomAccessIterator first, RandomAccessItera
 // #################################################################################
 
 
-template <typename RandomAccessIterator, typename Compare>
-requires std::random_access_iterator<RandomAccessIterator> && 
-         std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-void jman::msort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+void msort(Iterator start, Iterator end, Compare comp)
 {
-    using T = std::iter_value_t<RandomAccessIterator>;
+    using T = std::iter_value_t<Iterator>;
 
     std::size_t length = end - start;
     if (length <= 1) return;
 
-    std::vector<T> tmp {}; tmp.resize(length);
+    jman::vector<T> tmp {}; tmp.resize(length);
 
     std::size_t len = 1;
     while (len < length)
@@ -396,9 +381,9 @@ void jman::msort(RandomAccessIterator start, RandomAccessIterator end, Compare c
     }
 }
 
-template <typename RandomAccessIterator>
-requires std::random_access_iterator<RandomAccessIterator>
-JMAN_FORCE_INLINE void jman::msort(RandomAccessIterator first, RandomAccessIterator last)
+template <typename Iterator>
+requires std::random_access_iterator<Iterator>
+JMAN_FORCE_INLINE void msort(Iterator first, Iterator last)
 {
     msort(first, last, std::less{});
 }
@@ -408,11 +393,9 @@ JMAN_FORCE_INLINE void jman::msort(RandomAccessIterator first, RandomAccessItera
 // #################################################################################
 
 
-template <typename RandomAccessIterator, typename Compare>
-requires std::random_access_iterator<RandomAccessIterator> && 
-         std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-void jman::hsort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-    noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Compare>)
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+void hsort(Iterator start, Iterator end, Compare comp)
+    noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
     std::size_t length = end - start;
     if (length <= 1) return;
@@ -432,10 +415,9 @@ void jman::hsort(RandomAccessIterator start, RandomAccessIterator end, Compare c
     }
 }
 
-template <typename RandomAccessIterator>
-requires std::random_access_iterator<RandomAccessIterator>
-JMAN_FORCE_INLINE void jman::hsort(RandomAccessIterator first, RandomAccessIterator last)
-    noexcept(jman::is_nothrow_sortable<RandomAccessIterator>)
+template <std::random_access_iterator Iterator>
+JMAN_FORCE_INLINE void hsort(Iterator first, Iterator last)
+    noexcept(is_nothrow_sortable<Iterator>)
 {
     hsort(first, last, std::less{});
 }
@@ -445,16 +427,14 @@ JMAN_FORCE_INLINE void jman::hsort(RandomAccessIterator first, RandomAccessItera
 // #################################################################################
 
 
-template <typename RandomAccessIterator, typename Compare>
-requires std::random_access_iterator<RandomAccessIterator> && 
-         std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-void jman::isort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-    noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Compare>)
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+void isort(Iterator start, Iterator end, Compare comp)
+    noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
     std::size_t length = end - start;
     if (length <= 1) return;
 
-    using T = std::iter_value_t<RandomAccessIterator>;
+    using T = std::iter_value_t<Iterator>;
 
     // start with the second element since the first one is assumed its already sorted
     for (std::size_t i = 1; i < length; ++i) {
@@ -472,10 +452,9 @@ void jman::isort(RandomAccessIterator start, RandomAccessIterator end, Compare c
     }
 }
 
-template <typename RandomAccessIterator>
-requires std::random_access_iterator<RandomAccessIterator>
-JMAN_FORCE_INLINE void jman::isort(RandomAccessIterator first, RandomAccessIterator last)
-    noexcept(jman::is_nothrow_sortable<RandomAccessIterator>)
+template <std::random_access_iterator Iterator>
+JMAN_FORCE_INLINE void isort(Iterator first, Iterator last)
+    noexcept(is_nothrow_sortable<Iterator>)
 {
     isort(first, last, std::less{});
 }
@@ -486,11 +465,9 @@ JMAN_FORCE_INLINE void jman::isort(RandomAccessIterator first, RandomAccessItera
 // #################################################################################
 
 
-template <typename RandomAccessIterator, typename Compare>
-requires std::random_access_iterator<RandomAccessIterator> && 
-         std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-void jman::ssort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-    noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Compare>)
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+void ssort(Iterator start, Iterator end, Compare comp)
+    noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
     std::size_t length = end - start;
     if (length <= 1) return;
@@ -513,24 +490,21 @@ void jman::ssort(RandomAccessIterator start, RandomAccessIterator end, Compare c
     }
 }
 
-template <typename RandomAccessIterator>
-requires std::random_access_iterator<RandomAccessIterator>
-JMAN_FORCE_INLINE void jman::ssort(RandomAccessIterator first, RandomAccessIterator last)
-    noexcept(jman::is_nothrow_sortable<RandomAccessIterator>)
+template <std::random_access_iterator Iterator>
+JMAN_FORCE_INLINE void ssort(Iterator first, Iterator last)
+    noexcept(is_nothrow_sortable<Iterator>)
 {
     ssort(first, last, std::less{});
 }
 
 
 // #################################################################################
-// ------------------------------- INTRO SORT --------------------------------//
+// --------------------------------- INTRO SORT ----------------------------------//
 // #################################################################################
 
-template <typename RandomAccessIterator, typename Compare>
-requires std::random_access_iterator<RandomAccessIterator> && 
-         std::indirect_strict_weak_order<Compare, RandomAccessIterator>
-void jman::sort(RandomAccessIterator start, RandomAccessIterator end, Compare comp)
-    noexcept(jman::is_nothrow_sortable_comp<RandomAccessIterator, Compare>)
+template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
+void sort(Iterator start, Iterator end, Compare comp)
+    noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
     std::size_t length = end - start;
     if (length <= 1) return;
@@ -578,10 +552,11 @@ void jman::sort(RandomAccessIterator start, RandomAccessIterator end, Compare co
     
 }
 
-template <typename RandomAccessIterator>
-requires std::random_access_iterator<RandomAccessIterator>
-JMAN_FORCE_INLINE void jman::sort(RandomAccessIterator first, RandomAccessIterator last)
-    noexcept(jman::is_nothrow_sortable<RandomAccessIterator>)
+template <std::random_access_iterator Iterator>
+JMAN_FORCE_INLINE void sort(Iterator first, Iterator last)
+    noexcept(is_nothrow_sortable<Iterator>)
 {
     sort(first, last, std::less{});
 }
+
+} // namespace jman

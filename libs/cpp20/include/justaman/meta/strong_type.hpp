@@ -16,10 +16,12 @@ namespace jman
         T m_value {};
 
         public:
+            using argument = T;
+
             strong_type() noexcept(std::is_nothrow_default_constructible_v<T>) = default;
 
-            constexpr explicit strong_type(const T& v) noexcept(std::is_nothrow_copy_constructible_v<T>): m_value(v) {}
-            constexpr explicit strong_type(T&& v) noexcept(std::is_nothrow_move_constructible_v<T>): m_value(std::move(v)) {}
+            template <typename ...Args>
+            constexpr strong_type(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>): m_value({std::forward<Args>(args)...}) {}
 
             JMAN_NO_DISCARD constexpr T&                                    get() noexcept { return m_value; } // get as rvalue or lvalue depending on ref collapsing
             JMAN_NO_DISCARD constexpr const std::remove_reference_t<T>&     get() const noexcept { return m_value; } // view
@@ -30,4 +32,4 @@ namespace jman
             using ref = strong_type<T&, Tag, Skills...>; // returns a strong_type to reference the current value
             operator ref() { return {m_value}; }
     };
-};
+} // namespace jman

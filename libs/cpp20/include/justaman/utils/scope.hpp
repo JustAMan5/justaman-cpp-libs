@@ -19,9 +19,6 @@ namespace jman
     requires std::is_invocable_v<F>
     class scope_guard 
     {
-        F cleanup;
-        mutable bool active = true;
-
         public:
             explicit scope_guard(F&& f) : cleanup(std::move(f)) {}
             ~scope_guard() noexcept { if (active) jman::invoke(cleanup); }
@@ -32,5 +29,9 @@ namespace jman
             scope_guard& operator=(scope_guard&&) = delete;
 
             void dismiss() noexcept { active = false; } 
+
+        private:
+            F cleanup;
+            mutable bool active = true;
     };  
 }

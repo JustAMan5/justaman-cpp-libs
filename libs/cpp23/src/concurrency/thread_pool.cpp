@@ -1,18 +1,19 @@
 #include <justaman/concurrency/thread_pool.hpp>
+#include <justaman/containers/priority_queue.hpp>
 #include <atomic>
 #include <functional>
 #include <stop_token>
 #include <thread>
 #include <condition_variable>
-#include <justaman/containers/priority_queue.hpp>
 #include <mutex>
-// #include "lockfree/queue.hpp"
 
+namespace jman 
+{
 // ################################################################################################
 // ----------------------------------------- PRIVATE IMPL ---------------------------------------//
 // ################################################################################################
 
-struct jman::thread_pool::impl 
+struct thread_pool::impl 
 {
     std::vector<std::jthread>                  workers {};
     jman::priority_queue
@@ -60,13 +61,13 @@ struct jman::thread_pool::impl
 // --------------------------------------- PRIVATE METHODS --------------------------------------//
 // ################################################################################################
 
-void jman::thread_pool::push(std::move_only_function<void(std::stop_token)>&& task, std::size_t priority)
+void thread_pool::m_push(std::move_only_function<void(std::stop_token)>&& task, std::size_t priority)
 {
     if (m_impl->stop.load(std::memory_order_relaxed))
         throw std::runtime_error("justaman::thread_pool::submit failed: submit() called after shutdown()");
 
     std::lock_guard<std::mutex> lock(m_impl->mutex);
-    m_impl->tasks.push(std::move(task), priority);
+    m_impl->tasks.push(priority, std::move(task));
     m_impl->submited_or_stop_cv.notify_one();
 }
 
@@ -75,7 +76,7 @@ void jman::thread_pool::push(std::move_only_function<void(std::stop_token)>&& ta
 // ------------------------------ PUBLIC CONSTRUCTORS / DESTRUCTORS ----------------------------//
 // ################################################################################################
 
-jman::thread_pool::thread_pool(std::uint32_t thread_count)
+thread_pool::thread_pool(std::uint32_t thread_count)
     : m_impl(std::make_unique<impl>()) 
 {
 
@@ -89,7 +90,7 @@ jman::thread_pool::thread_pool(std::uint32_t thread_count)
         m_impl->workers.emplace_back(std::ref(*m_impl));
 }
 
-jman::thread_pool::~thread_pool() noexcept 
+thread_pool::~thread_pool() noexcept 
 {
     shutdown();
     wait_all();
@@ -100,7 +101,7 @@ jman::thread_pool::~thread_pool() noexcept
 // ---------------------------------------- PUBLIC METHODS --------------------------------------//
 // ################################################################################################
 
-void jman::thread_pool::wait_all() 
+void thread_pool::wait_all() 
 {
     std::unique_lock<std::mutex> lock(m_impl->mutex);
     m_impl->idle_cv.wait(lock, [this] {
@@ -108,24 +109,26 @@ void jman::thread_pool::wait_all()
     });
 }
 
-void jman::thread_pool::shutdown() noexcept 
+void thread_pool::shutdown() noexcept 
 {
     m_impl->stop.store(true, std::memory_order_release);
     m_impl->submited_or_stop_cv.notify_all();
 }
 
-std::uint32_t jman::thread_pool::workers() const noexcept 
+std::uint32_t thread_pool::workers() const noexcept 
 {
     return m_impl->workers.size();
 }
 
-std::size_t jman::thread_pool::pending() const noexcept 
+std::size_t thread_pool::pending() const noexcept 
 {
     std::lock_guard<std::mutex> lock {m_impl->mutex};
     return m_impl->tasks.size();
 }
 
-std::size_t jman::thread_pool::working() const noexcept 
+std::size_t thread_pool::working() const noexcept 
 {
     return m_impl->running_tasks.load(std::memory_order_acquire);
 }
+
+} // namespace jman

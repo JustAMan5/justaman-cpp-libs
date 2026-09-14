@@ -1,23 +1,3 @@
-#include <justaman/io/logger.hpp>
-#include <justaman/containers/vector.hpp>
-
-int main()
-{
-    // std::vector<float> test {1, 2, 3, 1, 5, 7, 2};
-
-    // jman::count(test.begin(), test.end(), [](const int& va){
-    //     return va == 1;
-    // });
-    jman::vector<float> vec = {1, 8, 5, 2, 8, 1, 5, 2, 8, 52, 2, 6, 1000};
-
-    vec.erase(3, 5);
-
-    for (auto num: vec)
-    {
-        jman::println("list1 {}", num);
-    };
-
-
-
+int main() {
     return 0;
 }

@@ -91,40 +91,4 @@
 
 #endif
 
-// #####################################################################################
-// ------------------------------------- UNREACHABLE ----------------------------------//
-// #####################################################################################
-
-
-// Check for standard C++23 std::unreachable
-#if defined(__has_include) && __has_include(<utility>)
-#   include <version>
-#   if defined(__cpp_lib_unreachable) && __cpp_lib_unreachable >= 202202L
-#       include <utility>
-#       define JMAN_UNREACHABLE_BARE() std::unreachable()
-#   endif
-#endif
-
-// Fallback to compiler-specific extensions if C++23 isn't available
-#ifndef JMAN_UNREACHABLE_BARE
-#   if defined(__GNUC__) || defined(__clang__) // GCC and Clang
-#       define JMAN_UNREACHABLE_BARE() __builtin_unreachable()
-#   elif defined(_MSC_VER) // MSVC
-#       define JMAN_UNREACHABLE_BARE() __assume(0)
-#   else
-#       include <stdlib.h>
-#       define JMAN_UNREACHABLE_BARE() abort()
-#   endif
-#endif
-
-#ifdef NDEBUG
-#   define JMAN_UNREACHABLE() JMAN_UNREACHABLE_BARE()
-#else
-#   define JMAN_UNREACHABLE() \
-        do { \
-            assert(false && "Critical Error: Execution reached a statement marked as unreachable."); \
-            JMAN_UNREACHABLE_BARE(); \
-        } while(false)
-#endif
-
 #endif // JMAN_COMPILER_ATTRIBUTES_H_LIB

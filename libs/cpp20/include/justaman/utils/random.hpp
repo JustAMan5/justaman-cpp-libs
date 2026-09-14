@@ -1,9 +1,10 @@
 #pragma once
 
+#include "attributes.h"
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <random>
-#include "attributes.h"
 
 namespace jman 
 {
@@ -102,7 +103,10 @@ namespace jman
             template<std::floating_point T = float>
             JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE weighted_index(std::initializer_list<T> weights);
     };  
-};
+} // namespace jman
+
+namespace jman 
+{
 
 // ###################################################################################################################
 // ---------------------------------------------- RANDOM 32 CLASS --------------------------------------------------//
@@ -112,12 +116,12 @@ namespace jman
 // --------------------------------- CONSTRUCTORS --------------------------------//
 // #################################################################################
 
-inline jman::random32::random32() 
+inline random32::random32() 
 {
     m_engine = std::mt19937 { std::random_device()() };
 }
 
-inline jman::random32::random32(std::uint32_t seed) 
+inline random32::random32(std::uint32_t seed) 
 {
     m_engine = std::mt19937 { seed };
 }
@@ -127,11 +131,11 @@ inline jman::random32::random32(std::uint32_t seed)
 // #################################################################################
 
 
-JMAN_FORCE_INLINE void jman::random32::reseed(std::uint32_t seed)
+JMAN_FORCE_INLINE void random32::reseed(std::uint32_t seed)
 {   
     m_engine = std::mt19937 { seed };
 }
-JMAN_FORCE_INLINE void jman::random32::discard(unsigned long long z)
+JMAN_FORCE_INLINE void random32::discard(unsigned long long z)
 {
     m_engine.discard(z);
 }
@@ -141,15 +145,15 @@ JMAN_FORCE_INLINE void jman::random32::discard(unsigned long long z)
 // ############################################################################
 
 
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t jman::random32::min() const noexcept
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t random32::min() const noexcept
 {
     return m_engine.min();
 }
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t jman::random32::max() const noexcept
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t random32::max() const noexcept
 {
     return m_engine.max();
 }
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t jman::random32::raw_next()
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t random32::raw_next()
 {
     return m_engine();
 }
@@ -159,62 +163,62 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t jman::random32::raw_next()
 // ####################################################################################
 
 
-JMAN_NO_DISCARD JMAN_FORCE_INLINE bool jman::random32::chance(double probability)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE bool random32::chance(double probability)
 {
     std::bernoulli_distribution d{ probability };
     return d(m_engine);
 }
 
 template<std::integral T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T jman::random32::range(T min, T max) 
+JMAN_NO_DISCARD JMAN_FORCE_INLINE T random32::range(T min, T max) 
 {
     std::uniform_int_distribution<T> d{ min, max };
     return d(m_engine);
 }
 
 template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T jman::random32::range(T min, T max)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE T random32::range(T min, T max)
 {
     std::uniform_real_distribution<T> d{ min, max };
     return d(m_engine);
 }
 
 template<std::integral T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T jman::random32::sign()
+JMAN_NO_DISCARD JMAN_FORCE_INLINE T random32::sign()
 {
     return ((m_engine() & 2UL) == 0) ? -1 : 1;
 }
 
 template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T jman::random32::variation(T mean, T stddev)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE T random32::variation(T mean, T stddev)
 {
     std::normal_distribution<T> d{ mean, stddev };
     return d(m_engine);
 }
 
 template<typename T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& jman::random32::choice(const std::vector<T>& vec)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& random32::choice(const std::vector<T>& vec)
 {
     std::uniform_int_distribution<> d{ 0, vec.size() - 1 };
     return vec[d(m_engine)];
 }
 
 template<typename T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& jman::random32::choice(std::initializer_list<T> list)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& random32::choice(std::initializer_list<T> list)
 {
     std::uniform_int_distribution<> d{ 0, list.size() - 1 };
     return list[d(m_engine)];
 }
 
 template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t jman::random32::weighted_index(const std::vector<T>& weights)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t random32::weighted_index(const std::vector<T>& weights)
 {
     std::discrete_distribution<> d{weights.begin(), weights.end()};
     return d(m_engine);
 }
 
 template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t jman::random32::weighted_index(std::initializer_list<T> weights)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t random32::weighted_index(std::initializer_list<T> weights)
 {
     std::discrete_distribution<> d{weights.begin(), weights.end()};
     return d(m_engine);
@@ -228,12 +232,12 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t jman::random32::weighted_index(std
 // --------------------------------- CONSTRUCTORS --------------------------------//
 // #################################################################################
 
-inline jman::random64::random64() 
+inline random64::random64() 
 {
     m_engine = std::mt19937_64 { std::random_device()() };
 }
 
-inline jman::random64::random64(std::uint64_t seed) 
+inline random64::random64(std::uint64_t seed) 
 {
     m_engine = std::mt19937_64 { seed };
 }
@@ -243,11 +247,11 @@ inline jman::random64::random64(std::uint64_t seed)
 // #################################################################################
 
 
-JMAN_FORCE_INLINE void jman::random64::reseed(std::uint64_t seed)
+JMAN_FORCE_INLINE void random64::reseed(std::uint64_t seed)
 {   
     m_engine = std::mt19937_64 { seed };
 }
-JMAN_FORCE_INLINE void jman::random64::discard(unsigned long long z)
+JMAN_FORCE_INLINE void random64::discard(unsigned long long z)
 {
     m_engine.discard(z);
 }
@@ -257,15 +261,15 @@ JMAN_FORCE_INLINE void jman::random64::discard(unsigned long long z)
 // ############################################################################
 
 
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t jman::random64::min() const noexcept
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t random64::min() const noexcept
 {
     return m_engine.min();
 }
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t jman::random64::max() const noexcept
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t random64::max() const noexcept
 {
     return m_engine.max();
 }
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t jman::random64::raw_next()
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t random64::raw_next()
 {
     return m_engine();
 }
@@ -275,63 +279,65 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t jman::random64::raw_next()
 // ####################################################################################
 
 
-JMAN_NO_DISCARD JMAN_FORCE_INLINE bool jman::random64::chance(double probability)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE bool random64::chance(double probability)
 {
     std::bernoulli_distribution d{ probability };
     return d(m_engine);
 }
 
 template<std::integral T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T jman::random64::range(T min, T max) 
+JMAN_NO_DISCARD JMAN_FORCE_INLINE T random64::range(T min, T max) 
 {
     std::uniform_int_distribution<T> d{ min, max };
     return d(m_engine);
 }
 
 template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T jman::random64::range(T min, T max)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE T random64::range(T min, T max)
 {
     std::uniform_real_distribution<T> d{ min, max };
     return d(m_engine);
 }
 
 template<std::integral T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T jman::random64::sign()
+JMAN_NO_DISCARD JMAN_FORCE_INLINE T random64::sign()
 {
     return ((m_engine() & 2UL) == 0) ? -1 : 1;
 }
 
 template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T jman::random64::variation(T mean, T stddev)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE T random64::variation(T mean, T stddev)
 {
     std::normal_distribution<T> d{ mean, stddev };
     return d(m_engine);
 }
 
 template<typename T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& jman::random64::choice(const std::vector<T>& vec)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& random64::choice(const std::vector<T>& vec)
 {
     std::uniform_int_distribution<> d{ 0, vec.size() - 1 };
     return vec[d(m_engine)];
 }
 
 template<typename T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& jman::random64::choice(std::initializer_list<T> list)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& random64::choice(std::initializer_list<T> list)
 {
     std::uniform_int_distribution<> d{ 0, list.size() - 1 };
     return list[d(m_engine)];
 }
 
 template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t jman::random64::weighted_index(const std::vector<T>& weights)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t random64::weighted_index(const std::vector<T>& weights)
 {
     std::discrete_distribution<> d{weights.begin(), weights.end()};
     return d(m_engine);
 }
 
 template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t jman::random64::weighted_index(std::initializer_list<T> weights)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t random64::weighted_index(std::initializer_list<T> weights)
 {
     std::discrete_distribution<> d{weights.begin(), weights.end()};
     return d(m_engine);
 }
+
+} // namespace jman

@@ -1,16 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 project(
     justaman_libs
-    VERSION 1.0.3 ## later should be version 1.1.0
+    VERSION 1.0.0
     LANGUAGES CXX
 )
-
-## TODO: must test and fix and review each file for any performance or notes to add and stuff like that
 
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(PROJECT_IS_TOP_LEVEL) # copy the compile commands to the source dir
+if(PROJECT_IS_TOP_LEVEL) # copy the compile commands to the source dir for clangd to find it
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_BINARY_DIR}/compile_commands.json" 

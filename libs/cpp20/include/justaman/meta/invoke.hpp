@@ -6,7 +6,8 @@ namespace jman
 {   
     namespace detail 
     {
-        // pointers to member methods of a class, first argument is the function adress itself, the second arg is for the object that refers to
+        // pointers to member methods of a class
+        //  first argument is the function adress itself, the second arg is for the object that refers to
         template <typename Base, typename T, typename Derived, typename... Args>
         auto invoke_impl(T Base::*pmf, Derived&& obj, Args&&... args)
             -> decltype((std::forward<Derived>(obj).*pmf)(std::forward<Args>(args)...)) 

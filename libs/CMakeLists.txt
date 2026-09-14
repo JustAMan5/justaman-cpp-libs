@@ -15,11 +15,12 @@ add_library(justaman::cpp20 ALIAS justaman_cpp20)
 target_compile_features(justaman_cpp20 ${LINK_TYPE} cxx_std_20)
 target_include_directories(justaman_cpp20 ${LINK_TYPE}
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp20/include>
-) # tell cmake to not cache this dir when someone links this
+) # tell cmake to not cache this dir when someone links this 
+#   (so cmake doesnt think the folder lives in the same directory on all projects its included)
 
 target_compile_options(justaman_cpp20 INTERFACE
-    $<$<CONFIG:Debug>:-g -O0 -Wall -Wextra>
-    $<$<CONFIG:Release>:-O3 -DNDEBUG>
+    $<$<CONFIG:Debug>:-g -O0 -Wall -Wextra> # if debug mode, disable optimizations and enable stricter warnings
+    $<$<CONFIG:Release>:-O3 -DNDEBUG> # if release, disable debug features and enable agressive optimiations
 )
 
 #######################################################################################
@@ -32,7 +33,7 @@ if(NOT CPP23_SRCS)
     add_library(justaman_cpp23 INTERFACE)
     set(LINK_TYPE INTERFACE)
 else()
-    add_library(justaman_cpp23 STATIC ${CPP23_SRCS}) # mark the library as interface (no binary needed, only forwards properties when linked)
+    add_library(justaman_cpp23 STATIC ${CPP23_SRCS})
     set(LINK_TYPE PUBLIC)
 endif()
 
@@ -61,7 +62,7 @@ target_link_libraries(justaman_cpp23 ${LINK_TYPE} justaman_cpp20)
 file(GLOB_RECURSE CPP26_SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cpp26/src/*.cpp")
 
 if(NOT CPP26_SRCS)
-    add_library(justaman_cpp26 INTERFACE) # mark the library as interface (no binary needed, only forwards properties when linked)
+    add_library(justaman_cpp26 INTERFACE)
     set(LINK_TYPE INTERFACE)
 else()
     add_library(justaman_cpp26 STATIC ${CPP26_SRCS})

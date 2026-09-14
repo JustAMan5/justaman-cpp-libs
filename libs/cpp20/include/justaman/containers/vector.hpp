@@ -26,7 +26,7 @@ namespace jman
             My custom implementation for a simpler version for std::vector.
             Tried to make it as accuarate as the standard version while giving more flexibility
     */
-    template <typename T, typename  S = std::size_t>
+    template <typename T, typename S = std::size_t>
     class vector
     {
         static_assert(!std::is_reference_v<T>, "Type T can't be a reference of any kind.");
@@ -70,9 +70,9 @@ namespace jman
 
             ~vector() noexcept;
 
-            // #######################################
-            // -------------------------------- stats
-            // #####################################
+            // ##################################################
+            // ------------------------------------------- stats
+            // ################################################
 
             JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         capacity() const noexcept   { return m_capacity; }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         remaining() const noexcept  { return m_capacity - m_size; }
@@ -81,9 +81,9 @@ namespace jman
             JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         size() const noexcept       { return m_size; }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE bool              empty() const noexcept      { return m_size == 0; }
 
-            // #########################################
-            // ------------------------------ accessing
-            // #######################################
+            // #####################################################
+            // ------------------------------------------ accessing
+            // ###################################################
 
             JMAN_NO_DISCARD JMAN_FORCE_INLINE const_pointer             data() const noexcept                       { return std::launder(m_buffer); }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE pointer                   data() noexcept                             { return std::launder(m_buffer); }
@@ -119,9 +119,9 @@ namespace jman
 
             JMAN_NO_DISCARD bool                                        contains(const_reference value) const;
 
-            // #######################################
-            // ---------------------------- iterators
-            // #####################################
+            // ################################################
+            // ------------------------------------- iterators
+            // ##############################################
 
             JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator                  begin() noexcept            { return iterator{m_buffer}; }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator                  end() noexcept              { return iterator{m_buffer + m_size}; }
@@ -158,48 +158,41 @@ namespace jman
             // ---------------------------------------- algorithms
             // ##################################################
 
-            template <std::predicate Predicate>
+            template <std::predicate<T> Predicate>
             JMAN_NO_DISCARD iterator                            find_first_if(Predicate pred);
             JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          find_first(const_reference);
 
-            template <std::predicate Predicate>
+            template <std::predicate<T> Predicate>
             JMAN_NO_DISCARD const_iterator                      find_first_if(Predicate pred) const;
             JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    find_first(const_reference) const;
 
-            template <std::predicate Predicate>
+            template <std::predicate<T> Predicate>
             void                                                remove_if(Predicate pred);
             void                                                remove(const_reference value);
             void                                                reverse();
             size_type                                           unique();
-            template <class Predicate> 
-            requires std::predicate<Predicate, T, T>
+            template <std::predicate<T, T> Predicate>
             size_type                                           unique(Predicate pred);
-            template <class Predicate>
-            requires std::predicate<Predicate, T>
+            template <std::predicate<T> Predicate>
             void                                                retain(Predicate pred);
 
             // ####################################################
             // -------------------------------- elements insertion
             // ##################################################
 
-            template <typename ...Args>
-            requires std::is_constructible_v<T, Args...>
+            template <typename ...Args> requires std::is_constructible_v<T, Args...>
             void                                                emplace_back(Args&&... args);
-            template <typename TT>
-            requires std::is_convertible_v<TT, T>
+            template <typename TT>      requires std::is_convertible_v<TT, T>
             void                                                push_back(TT&& value);
 
-            template <typename TT>
-            requires std::is_convertible_v<TT, T>
+            template <typename TT>      requires std::is_convertible_v<TT, T>
             void                                                insert(size_type index, TT&& value);
             void                                                insert(size_type index, size_type count, const_reference value);
             void                                                insert(size_type index, std::initializer_list<T> list);
-            template <typename ...Args>
-            requires std::is_constructible_v<T, Args...>
+            template <typename ...Args> requires std::is_constructible_v<T, Args...>
             void                                                emplace(size_type index, Args&&... args);
 
-            template <typename TT>
-            requires std::is_convertible_v<TT, T>
+            template <typename TT>      requires std::is_convertible_v<TT, T>
             void                                                insert(const_iterator it, TT&& value);
             void                                                insert(const_iterator it, size_type count, const_reference value);
             void                                                insert(const_iterator it, std::initializer_list<T> list);
@@ -248,14 +241,14 @@ namespace jman
                     (!std::is_nothrow_move_assignable_v<T> && !std::is_nothrow_copy_assignable_v<T>);
 
             protected:
-                // shortcuts for calculating calculating capacities for when calling _alloc() 
+                // shortcuts for calculating calculating capacities for when calling m_alloc() 
                 // that throw when any operation overflows the size_type specified
-                JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type           m_growth_capacity(size_type required) const;
-                JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type           m_required_capacity(size_type increase) const;
+                JMAN_NO_DISCARD size_type           m_growth_capacity(size_type required) const;
+                JMAN_NO_DISCARD size_type           m_required_capacity(size_type increase) const;
 
                 // shortcut for allocating and deallocating blocks of mem
-                JMAN_NO_DISCARD JMAN_FORCE_INLINE static T*           m_alloc(size_type capacity);
-                JMAN_FORCE_INLINE static void                         m_dealloc(T* ptr) noexcept;
+                JMAN_NO_DISCARD static T*           m_alloc(size_type capacity);
+                JMAN_FORCE_INLINE static void       m_dealloc(T* ptr) noexcept;
 
                 // shortcut for growing the vector
                 void                                m_grow(size_type increase = 1);
@@ -390,35 +383,37 @@ namespace jman
 // #####################################################################################################################
 
 template <typename T, typename S>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::size_type vector<T, S>::m_growth_capacity(size_type required) const
+JMAN_NO_DISCARD vector<T, S>::size_type vector<T, S>::m_growth_capacity(size_type required) const
 {
-    if JMAN_UNLIKELY(!jman::validate_mul<size_type>(m_capacity, GROW_FACTOR)) 
+    size_type result;
+    if JMAN_UNLIKELY(!jman::validate_mul<size_type>(m_capacity, GROW_FACTOR, result)) 
         JMAN_THROW(std::overflow_error("jman::vector<T, S>::m_growth_capacity() failed: calculated capacity overflows the size_type specified."));
 
-    size_type newCapacity = jman::max(m_capacity * GROW_FACTOR, required);
+    size_type newCapacity = jman::max(result, required);
     return jman::max(newCapacity, MIN_CAPACITY);
 }
 
 template <typename T, typename S>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::size_type vector<T, S>::m_required_capacity(size_type increase) const
+JMAN_NO_DISCARD vector<T, S>::size_type vector<T, S>::m_required_capacity(size_type increase) const
 {
-    if JMAN_UNLIKELY(!jman::validate_add<size_type>(m_size, increase)) 
+    size_type result;
+    if JMAN_UNLIKELY(!jman::validate_add<size_type>(m_size, increase, result)) 
         JMAN_THROW(std::overflow_error("jman::vector<T, S>::m_required_capacity() failed: calculated minimum required capacity overflows the size_type specified."));
 
-    return m_size + increase;
+    return result;
 }
 
 
 
 
 template <typename T, typename S>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE T* vector<T, S>::m_alloc(size_type capacity)
+JMAN_NO_DISCARD T* vector<T, S>::m_alloc(size_type capacity)
 {
-    // shortcut for allocating a new block
-    if JMAN_UNLIKELY(!jman::validate_mul<size_type>(sizeof(T), capacity)) 
+    size_type result;
+    if JMAN_UNLIKELY(!jman::validate_mul<size_type>(sizeof(T), capacity, result)) 
         JMAN_THROW(std::overflow_error("jman::vector<T, S>::m_alloc() failed: calculated capacity overflows the size_type specified."));
 
-    return static_cast<T*>(::operator new(sizeof(T) * capacity, std::align_val_t{alignof(T)}));
+    return static_cast<T*>(::operator new(result, std::align_val_t{alignof(T)}));
 }
 
 template <typename T, typename S>
@@ -767,7 +762,7 @@ vector<T, S>& vector<T, S>::operator=(vector&& other) noexcept
     if (this != &other) return *this;
 
     clear();
-    if (m_buffer) _dealloc(m_buffer);
+    if (m_buffer) m_dealloc(m_buffer);
 
     m_buffer = other.m_buffer;
     m_capacity = other.m_capacity;
@@ -990,7 +985,7 @@ void vector<T, S>::resize(size_type newSize)
         m_size = newSize;
 
         if (newSize == 0) {
-            if (m_buffer) _dealloc(m_buffer);
+            if (m_buffer) m_dealloc(m_buffer);
             m_buffer = nullptr;
             m_capacity = 0;
             return;
@@ -1065,7 +1060,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
         m_size = newSize;
     
         if (newSize == 0) {
-            if (m_buffer) _dealloc(m_buffer);
+            if (m_buffer) m_dealloc(m_buffer);
             m_buffer = nullptr;
             m_capacity = 0;
             return;
@@ -1128,7 +1123,7 @@ void vector<T, S>::swap(vector& other) noexcept
 // ##########################################################################################################
 
 template <typename T, typename S>
-template <std::predicate Predicate>
+template <std::predicate<T> Predicate>
 JMAN_NO_DISCARD vector<T, S>::iterator vector<T, S>::find_first_if(Predicate pred)
 {
     for (size_type i = 0; i < m_size; ++i)
@@ -1137,7 +1132,7 @@ JMAN_NO_DISCARD vector<T, S>::iterator vector<T, S>::find_first_if(Predicate pre
 }
 
 template <typename T, typename S>
-template <std::predicate Predicate>
+template <std::predicate<T> Predicate>
 JMAN_NO_DISCARD vector<T, S>::const_iterator vector<T, S>::find_first_if(Predicate pred) const
 {
     for (size_type i = 0; i < m_size; ++i)
@@ -1168,7 +1163,7 @@ JMAN_NO_DISCARD vector<T, S>::const_iterator vector<T, S>::find_first(const_refe
 
 
 template <typename T, typename S>
-template <std::predicate Predicate>
+template <std::predicate<T> Predicate>
 void vector<T, S>::remove_if(Predicate pred)
 {
     if (empty()) return;
@@ -1264,8 +1259,7 @@ vector<T, S>::size_type vector<T, S>::unique()
     return removed;
 }
 template <typename T, typename S>
-template <class Predicate> 
-requires std::predicate<Predicate, T, T>
+template <std::predicate<T, T> Predicate> 
 vector<T, S>::size_type vector<T, S>::unique(Predicate pred)
 {
     if (empty()) return 0;
@@ -1292,8 +1286,7 @@ vector<T, S>::size_type vector<T, S>::unique(Predicate pred)
 
 
 template <typename T, typename S>
-template <class Predicate> 
-requires std::predicate<Predicate, T>
+template <std::predicate<T> Predicate> 
 void vector<T, S>::retain(Predicate pred)
 {
     if (empty()) return;
@@ -1320,8 +1313,7 @@ void vector<T, S>::retain(Predicate pred)
 // ##########################################################################################################
 
 template <typename T, typename S>
-template <typename ...Args>
-requires std::is_constructible_v<T, Args...>
+template <typename ...Args> requires std::is_constructible_v<T, Args...>
 void vector<T, S>::emplace_back(Args&&... args)
 {
     m_grow();
@@ -1329,8 +1321,7 @@ void vector<T, S>::emplace_back(Args&&... args)
     ++m_size;
 }
 template <typename T, typename S>
-template <typename TT>
-requires std::is_convertible_v<TT, T>
+template <typename TT> requires std::is_convertible_v<TT, T>
 void vector<T, S>::push_back(TT&& value)
 {
     m_grow();
@@ -1342,8 +1333,7 @@ void vector<T, S>::push_back(TT&& value)
 
 
 template <typename T, typename S>
-template <typename TT>
-requires std::is_convertible_v<TT, T>
+template <typename TT> requires std::is_convertible_v<TT, T>
 void vector<T, S>::insert(size_type index, TT&& value)
 {
     if (index > m_size) JMAN_THROW(std::out_of_range("jman::vector<T>::insert() failed: Index out of range."));
@@ -1477,8 +1467,7 @@ void vector<T, S>::insert(size_type index, std::initializer_list<T> list)
 
 
 template <typename T, typename S>
-template <typename ...Args>
-requires std::is_constructible_v<T, Args...>
+template <typename ...Args> requires std::is_constructible_v<T, Args...>
 void vector<T, S>::emplace(size_type index, Args&&... args)
 {
     if (index > m_size) JMAN_THROW(std::out_of_range("jman::vector<T>::emplace() failed: Index out of range."));
@@ -1489,8 +1478,7 @@ void vector<T, S>::emplace(size_type index, Args&&... args)
 
 
 template <typename T, typename S>
-template <typename TT>
-requires std::is_convertible_v<TT, T>
+template <typename TT> requires std::is_convertible_v<TT, T>
 void vector<T, S>::insert(const_iterator it, TT&& value)
 {
     size_type index = it - begin();
