@@ -15,15 +15,16 @@ namespace jman
 
 struct thread_pool::impl 
 {
-    std::vector<std::jthread>                  workers {};
+    std::vector<std::jthread>                  workers              {};
     jman::priority_queue
-        <std::move_only_function<void(std::stop_token)>>      tasks {};
+        <std::move_only_function<void(std::stop_token)>, jman::use_external_priority_t>      
+                                               tasks                {};
     
-    std::atomic_bool                           stop { false };
-    std::atomic_size_t                         running_tasks   { 0 };   // tasks currently running
-    std::condition_variable                    idle_cv {};                 // notified when running_tasks hits 0
-    std::condition_variable                    submited_or_stop_cv {};     // notified when a task is pushed or shutdown is called    
-    mutable std::mutex                         mutex {};
+    std::atomic_bool                           stop                 { false };
+    std::atomic_size_t                         running_tasks        { 0 };   // tasks currently running
+    std::condition_variable                    idle_cv              {};       // notified when running_tasks hits 0
+    std::condition_variable                    submited_or_stop_cv  {};     // notified when a task is pushed or shutdown is called    
+    mutable std::mutex                         mutex                {};
 
     void operator()(std::stop_token tk)
     {

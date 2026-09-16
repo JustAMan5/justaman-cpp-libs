@@ -69,8 +69,8 @@ constexpr JMAN_FORCE_INLINE void destruct_at(std::ptrdiff_t count, T* ptr)
     if constexpr (std::is_trivially_destructible_v<T>)
         return;
 
-    for (std::ptrdiff_t i = count; i > 0; --i)
-        (ptr + i - 1)->~T();
+    for (std::ptrdiff_t i = count; i-- > 0;)
+        (ptr + i)->~T();
 }
 
 /**
@@ -103,8 +103,8 @@ constexpr JMAN_FORCE_INLINE void destruct_at(std::size_t count, T* ptr)
     if constexpr (std::is_trivially_destructible_v<T>)
         return;
 
-    for (std::size_t i = count; i > 0; --i)
-        (ptr + i - 1)->~T();
+    for (std::size_t i = count; i-- > 0;)
+        (ptr + i)->~T();
 }
 
 // #############################################################################################################

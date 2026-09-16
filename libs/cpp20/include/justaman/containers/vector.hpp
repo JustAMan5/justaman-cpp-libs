@@ -386,7 +386,7 @@ template <typename T, typename S>
 JMAN_NO_DISCARD vector<T, S>::size_type vector<T, S>::m_growth_capacity(size_type required) const
 {
     size_type result;
-    if JMAN_UNLIKELY(!jman::validate_mul<size_type>(m_capacity, GROW_FACTOR, result)) 
+    if JMAN_UNLIKELY(!jman::validate_mul<size_type>(m_capacity, GROW_FACTOR, &result)) 
         JMAN_THROW(std::overflow_error("jman::vector<T, S>::m_growth_capacity() failed: calculated capacity overflows the size_type specified."));
 
     size_type newCapacity = jman::max(result, required);
@@ -397,7 +397,7 @@ template <typename T, typename S>
 JMAN_NO_DISCARD vector<T, S>::size_type vector<T, S>::m_required_capacity(size_type increase) const
 {
     size_type result;
-    if JMAN_UNLIKELY(!jman::validate_add<size_type>(m_size, increase, result)) 
+    if JMAN_UNLIKELY(!jman::validate_add<size_type>(m_size, increase, &result)) 
         JMAN_THROW(std::overflow_error("jman::vector<T, S>::m_required_capacity() failed: calculated minimum required capacity overflows the size_type specified."));
 
     return result;
@@ -410,7 +410,7 @@ template <typename T, typename S>
 JMAN_NO_DISCARD T* vector<T, S>::m_alloc(size_type capacity)
 {
     size_type result;
-    if JMAN_UNLIKELY(!jman::validate_mul<size_type>(sizeof(T), capacity, result)) 
+    if JMAN_UNLIKELY(!jman::validate_mul<size_type>(sizeof(T), capacity, &result)) 
         JMAN_THROW(std::overflow_error("jman::vector<T, S>::m_alloc() failed: calculated capacity overflows the size_type specified."));
 
     return static_cast<T*>(::operator new(result, std::align_val_t{alignof(T)}));

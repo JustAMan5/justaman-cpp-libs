@@ -91,4 +91,19 @@
 
 #endif
 
+// #####################################################################################
+// ------------------------------------- NO_UNIQUE_ADDRESS ----------------------------------//
+// #####################################################################################
+
+#if (defined(__cplusplus) && __cplusplus >= 202002L)
+#   if defined(_MSC_VER)
+        // stupid msvc ignores the standard no_unique_address
+#       define JMAN_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]] 
+#   else
+#       define JMAN_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#   endif
+#else
+#   define JMAN_NO_UNIQUE_ADDRESS
+#endif
+
 #endif // JMAN_COMPILER_ATTRIBUTES_H_LIB

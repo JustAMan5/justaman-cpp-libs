@@ -13,15 +13,63 @@ namespace jman
         std::mt19937 m_engine;
 
         public:
-            random32();
-            explicit random32(std::uint32_t seed);
+            inline random32();
+            inline explicit random32(std::uint32_t seed);
 
-            void                                            reseed(std::uint32_t seed = std::random_device()());
-            void                                            discard(unsigned long long z);
+            JMAN_FORCE_INLINE void                          reseed(std::uint32_t seed = std::random_device()());
+            JMAN_FORCE_INLINE void                          discard(unsigned long long z);
 
-            JMAN_NO_DISCARD std::uint32_t                   min() const noexcept;
-            JMAN_NO_DISCARD std::uint32_t                   max() const noexcept;
-            JMAN_NO_DISCARD std::uint32_t                   raw_next();
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t min() const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t max() const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint32_t raw_next();
+
+            bool                                            chance(double probability = 0.5);
+
+            template<std::integral T>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE T             range(T min, T max);
+
+            template<std::floating_point T = float>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE T             range(T min, T max);
+
+            template<std::integral T = int>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE T             sign();
+
+            template<std::floating_point T = float>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE T             variation(T mean, T stddev);
+
+            template<typename T>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const T&      choice(const std::vector<T>& vec);
+
+            template<typename T>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const T&      choice(std::initializer_list<T> list);
+
+            /** 
+            * @note: internally it uses std::discrete_distribution, so there is a heap allocation internally for cache or smt idk, so watch out 
+            */
+            template<std::floating_point T = float>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t   weighted_index(const std::vector<T>& weights);
+
+            /** 
+            * @note: internally it uses std::discrete_distribution, so there is a heap allocation internally for cache or smt idk, so watch out 
+            */
+            template<std::floating_point T = float>
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t   weighted_index(std::initializer_list<T> weights);
+    };  
+
+    class random64
+    {
+        std::mt19937_64 m_engine;
+
+        public:
+            inline random64();
+            inline explicit random64(std::uint64_t seed);
+
+            JMAN_FORCE_INLINE void                          reseed(std::uint64_t seed = std::random_device()());
+            JMAN_FORCE_INLINE void                          discard(unsigned long long z);
+
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t min() const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t max() const noexcept;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::uint64_t raw_next();
 
             bool                                            chance(double probability = 0.5);
 
@@ -54,54 +102,6 @@ namespace jman
             */
             template<std::floating_point T = float>
             JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE   weighted_index(std::initializer_list<T> weights);
-    };  
-
-    class random64
-    {
-        std::mt19937_64 m_engine;
-
-        public:
-            random64();
-            explicit random64(std::uint64_t seed);
-
-            void reseed(std::uint64_t seed = std::random_device()());
-            void discard(unsigned long long z);
-
-            JMAN_NO_DISCARD std::uint64_t min() const noexcept;
-            JMAN_NO_DISCARD std::uint64_t max() const noexcept;
-            JMAN_NO_DISCARD std::uint64_t raw_next();
-
-            bool chance(double probability = 0.5);
-
-            template<std::integral T>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE T range(T min, T max);
-
-            template<std::floating_point T = float>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE T range(T min, T max);
-
-            template<std::integral T = int>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE T sign();
-
-            template<std::floating_point T = float>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE T variation(T mean, T stddev);
-
-            template<typename T>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& choice(const std::vector<T>& vec);
-
-            template<typename T>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& choice(std::initializer_list<T> list);
-
-            /** 
-            * @note: internally it uses std::discrete_distribution, so there is a heap allocation internally for cache or smt idk, so watch out 
-            */
-            template<std::floating_point T = float>
-            JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE weighted_index(const std::vector<T>& weights);
-
-            /** 
-            * @note: internally it uses std::discrete_distribution, so there is a heap allocation internally for cache or smt idk, so watch out 
-            */
-            template<std::floating_point T = float>
-            JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE weighted_index(std::initializer_list<T> weights);
     };  
 } // namespace jman
 

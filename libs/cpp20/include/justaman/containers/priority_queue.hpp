@@ -1,6 +1,9 @@
 #pragma once
 
 #include <justaman/containers/vector.hpp>
+#include <concepts>
+#include <cstdint>
+#include <initializer_list>
 #include <type_traits>
 #include <utility>
 
@@ -17,15 +20,22 @@
 
 namespace jman
 {
+    struct use_external_priority_t {};
 
     /**
         @brief
             a max heap priority queue wrapped around a vector, this implementation uses a raw priority number value
             instead of a comparator function to determine which has more priority
     */
-    template <typename T>
+    template <typename T, typename PolicyOrComp = std::less<T>>
     class priority_queue 
     {
+        static_assert(
+            std::same_as<PolicyOrComp, use_external_priority_t> || std::predicate<PolicyOrComp, T, T>, 
+            "Must be a valid comparator func or be use_external_priority_t{}"
+        );
+        static constexpr bool is_keyed = std::is_same_v<PolicyOrComp, use_external_priority_t>;
+
         public:
             using value_type        = T;
             using size_type         = std::size_t;
@@ -34,44 +44,64 @@ namespace jman
             using pointer           = T*;
             using const_pointer     = const T*;
         
-            priority_queue() = default;
+            priority_queue() noexcept = default;
+
+            priority_queue(std::initializer_list<std::pair<T, std::size_t>> list) requires(is_keyed);
+            priority_queue(std::initializer_list<T> list) requires(!is_keyed);
 
             JMAN_NO_DISCARD JMAN_FORCE_INLINE bool              empty() const noexcept      { return m_data.empty(); }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         size() const noexcept       { return m_data.size(); }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE size_type         capacity() const noexcept   { return m_data.capacity(); }
+
             JMAN_NO_DISCARD JMAN_FORCE_INLINE const_reference   peek() const noexcept       { return m_data.front().value; }
             /** @warning that this method only exists to move the current element and directly pop it after */
             JMAN_NO_DISCARD JMAN_FORCE_INLINE reference         peek() noexcept             { return m_data.front().value; }
+
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE reference         top_priority() noexcept requires(is_keyed) { return m_data.front().priority; }
 
             JMAN_FORCE_INLINE void                              clear()                     { m_data.clear(); }
             JMAN_FORCE_INLINE void                              shrink_to_fit()             { m_data.shrink_to_fit(); }
             JMAN_FORCE_INLINE void                              reserve(size_type count)    { m_data.reserve(count); }
 
-            template <typename TT> requires std::is_convertible_v<TT, T>
-            void                                                push(size_type priority, TT&& value);
+            template <typename TT>      requires std::is_convertible_v<TT, T>
+            void                                                push(size_type priority, TT&& value) requires(is_keyed);
             template <typename ...Args> requires std::is_constructible_v<T, Args...>
-            void                                                emplace(size_type priority, Args&& ...args);
+            void                                                emplace(size_type priority, Args&& ...args) requires(is_keyed);
+
+            template <typename TT>      requires std::is_convertible_v<TT, T>
+            void                                                push(TT&& value) requires(!is_keyed);
+            template <typename ...Args> requires std::is_constructible_v<T, Args...>
+            void                                                emplace(Args&& ...args) requires(!is_keyed);
+
             void                                                pop();
 
         private:
-            struct node 
+            struct empty_comp {};
+
+            struct keyed_node 
             {
                 size_type   priority;
                 value_type  value;
             };
-            
-            jman::vector<node> m_data {};
 
+            struct value_node  
+            {
+                value_type  value;
+            };
+
+            using note_t = std::conditional_t<is_keyed, value_node, keyed_node>;
+
+            jman::vector<note_t, size_type> m_data {};
+            JMAN_NO_UNIQUE_ADDRESS std::conditional_t<is_keyed, empty_comp, PolicyOrComp> m_comp;
         private:
             void m_swim(size_type index)
-                noexcept(std::is_nothrow_swappable_v<T>); // fix up
+                noexcept(std::is_nothrow_swappable_v<T>) requires(is_keyed); // fix up
             void m_sink(size_type index)
-                noexcept(std::is_nothrow_swappable_v<T>); // fix down
-    };
+                noexcept(std::is_nothrow_swappable_v<T>) requires(is_keyed); // fix down
 
-    /** not implemented yet, only declared */
-    template <typename T, typename Comparator = std::less<T>>
-    class priority_queue_comp;
+            void m_swim(size_type index) requires(!is_keyed); // fix up
+            void m_sink(size_type index) requires(!is_keyed); // fix down
+    };
 } // namespace jman
 
 namespace jman 
@@ -81,9 +111,9 @@ namespace jman
 // -------------------------------- PRIVATE METHODS ----------------------------------//
 // #####################################################################################
 
-template <typename T>
-void priority_queue<T>::m_swim(size_type index)
-    noexcept(std::is_nothrow_swappable_v<T>)
+template <typename T, typename PolicyOrComp>
+void priority_queue<T, PolicyOrComp>::m_swim(size_type index)
+    noexcept(std::is_nothrow_swappable_v<T>) requires(is_keyed)
 {
     while (index > 0 && m_data[(index - 1) / 2].priority < m_data[index].priority)
     {   // continue swaping until the index becomes the root or when meeting someone with more priority
@@ -92,9 +122,9 @@ void priority_queue<T>::m_swim(size_type index)
         index = parent;
     }
 }
-template <typename T>
-void priority_queue<T>::m_sink(size_type index)
-    noexcept(std::is_nothrow_swappable_v<T>)
+template <typename T, typename PolicyOrComp>
+void priority_queue<T, PolicyOrComp>::m_sink(size_type index)
+    noexcept(std::is_nothrow_swappable_v<T>) requires(is_keyed)
 {
     while (2 * index + 1 < m_data.size()) // if atleast left child exists
     {
@@ -113,29 +143,102 @@ void priority_queue<T>::m_sink(size_type index)
     }
 }
 
+template <typename T, typename PolicyOrComp>
+void priority_queue<T, PolicyOrComp>::m_swim(size_type index) requires(!is_keyed)
+{
+    
+}
+template <typename T, typename PolicyOrComp>
+void priority_queue<T, PolicyOrComp>::m_sink(size_type index) requires(!is_keyed)
+{
+    
+}
+
+
+// #####################################################################################
+// ---------------------------------- CONSTRUCTORS ----------------------------------//
+// #####################################################################################
+
+template <typename T, typename PolicyOrComp>
+priority_queue<T, PolicyOrComp>::priority_queue(std::initializer_list<std::pair<T, std::size_t>> list) requires(is_keyed)
+{
+    size_type length = list.size();
+    m_data.reserve(length);
+
+    for (const auto& val: list)
+        m_data.emplace_back(val.second, val.first);
+
+    if (length <= 1) return;
+
+    // builds heap in place
+    for (std::int64_t i = length / 2 - 1; i >= 0; --i)
+        while (true)
+        {
+            size_type largest = i;
+            size_type l = 2 * i + 1;
+            size_type r = 2 * i + 2;
+
+            // if left child is larger set it as largest
+            if (l < length && m_data[l].priority > m_data[largest].priority)
+                largest = l;
+
+            // if right child is larger set it as largest
+            if (r < length && m_data[r].priority > m_data[largest].priority)
+                largest = r;
+
+            // if largest is not the root swap them and heapify the sub tree
+            if (largest == i)
+                break;
+
+            std::swap(m_data[i], m_data[largest]);
+            i = largest;
+        }
+}
+
+template <typename T, typename PolicyOrComp>
+priority_queue<T, PolicyOrComp>::priority_queue(std::initializer_list<T> list) requires(!is_keyed)
+{
+    
+}
+
 // #####################################################################################
 // -------------------------------- PUBLIC METHODS ----------------------------------//
 // #####################################################################################
 
-
-template <typename T>
+template <typename T, typename PolicyOrComp>
 template <typename TT> requires std::is_convertible_v<TT, T>
-void priority_queue<T>::push(size_type priority, TT&& value)
+void priority_queue<T, PolicyOrComp>::push(size_type priority, TT&& value) requires(is_keyed)
 {
     m_data.emplace_back(priority, static_cast<T>(std::forward<TT>(value)));
     m_swim(m_data.size() - 1);
 }
 
-template <typename T>
+template <typename T, typename PolicyOrComp>
 template <typename ...Args> requires std::is_constructible_v<T, Args...>
-void priority_queue<T>::emplace(size_type priority, Args&& ...args)
+void priority_queue<T, PolicyOrComp>::emplace(size_type priority, Args&& ...args) requires(is_keyed)
 {
     m_data.emplace_back(priority, std::forward<Args>(args)...);
     m_swim(m_data.size() - 1);
 }
 
-template <typename T>
-void priority_queue<T>::pop()
+template <typename T, typename PolicyOrComp>
+template <typename TT> requires std::is_convertible_v<TT, T>
+void priority_queue<T, PolicyOrComp>::push(TT&& value) requires(!is_keyed)
+{
+    m_data.emplace_back(static_cast<T>(std::forward<TT>(value)));
+    m_swim(m_data.size() - 1);
+}
+
+template <typename T, typename PolicyOrComp>
+template <typename ...Args> requires std::is_constructible_v<T, Args...>
+void priority_queue<T, PolicyOrComp>::emplace(Args&& ...args) requires(!is_keyed)
+{
+    m_data.emplace_back(std::forward<Args>(args)...);
+    m_swim(m_data.size() - 1);
+}
+
+template <typename T, typename PolicyOrComp>
+void priority_queue<T, PolicyOrComp>::pop()
 {
     if (m_data.empty()) return;
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 #include <iterator>
 #include <type_traits>
 #include <justaman/containers/vector.hpp> // forced for merge sort for the temp buffer
@@ -223,10 +224,10 @@ void hsort_heapify(Iterator start, Iterator end, std::size_t i, Comp comp)
 }
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
-void msort__merge(
+void msort_merge(
     Iterator L1, Iterator R1, 
     Iterator L2, Iterator R2, 
-    jman::vector<std::iter_value_t<Iterator>>& temp,
+    jman::vector<std::iter_value_t<Iterator>>* temp,
     Comp comp
 )
     noexcept(jman::is_nothrow_sortable_comp<Iterator, Comp>)
@@ -234,18 +235,18 @@ void msort__merge(
     std::size_t i = 0;
     auto start1 = L1;
     auto start2 = L2;
-
+    
 
     // in here we r using <= because the code treats R1 and R2 as the last actual element and not the next position after the last
     while (L1 <= R1 && L2 <= R2)
     {
         if (comp(*L1, *L2)) {
-            temp[i] = std::move_if_noexcept(*L1);
+            (*temp)[i] = std::move_if_noexcept(*L1);
             ++i;
             ++L1;
         }
         else {
-            temp[i] = std::move_if_noexcept(*L2);
+            (*temp)[i] = std::move_if_noexcept(*L2);
             ++i;
             ++L2;
         }
@@ -255,14 +256,14 @@ void msort__merge(
 
     while (L1 <= R1) 
     {
-        temp[i] = std::move_if_noexcept(*L1);
+        (*temp)[i] = std::move_if_noexcept(*L1);
         ++i;
         ++L1;
     }
 
     while (L2 <= R2)
     {
-        temp[i] = std::move_if_noexcept(*L2);
+        (*temp)[i] = std::move_if_noexcept(*L2);
         ++i;
         ++L2;
     }
@@ -370,7 +371,7 @@ void msort(Iterator start, Iterator end, Compare comp)
             if (R2 >= length)
                 R2 = length - 1;
 
-            detail::msort__merge(start + L1, start + R1, start + L2, start + R2, tmp, comp);
+            detail::msort_merge(start + L1, start + R1, start + L2, start + R2, &tmp, comp);
             for (std::size_t j = 0; j < R2 - L1 + 1; ++j)
                 start[i + j] = std::move_if_noexcept(tmp[j]);
     
@@ -401,11 +402,11 @@ void hsort(Iterator start, Iterator end, Compare comp)
     if (length <= 1) return;
 
     // build heap inplace
-    for (int i = length / 2 - 1; i >= 0; --i)
+    for (std::int64_t i = length / 2 - 1; i >= 0; --i)
         detail::hsort_heapify(start, end, i, comp);
 
     // one by one extract top elements from the heap and swap them with the back
-    for (int i = length - 1; i > 0; --i) {
+    for (std::int64_t i = length - 1; i > 0; --i) {
 
         // Move current root to end
         std::swap(start[0], start[i]);
