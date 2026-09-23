@@ -1,5 +1,6 @@
 #pragma once
 
+#include "justaman/memory/lifetime.hpp"
 #include "justaman/utils/attributes.h"
 #include <type_traits>
 #include <utility>
@@ -18,18 +19,25 @@ namespace jman
         public:
             using argument = T;
 
-            strong_type() noexcept(std::is_nothrow_default_constructible_v<T>) = default;
+            constexpr strong_type() noexcept(std::is_nothrow_default_constructible_v<T>) = default;
 
             template <typename ...Args>
-            constexpr strong_type(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>): m_value({std::forward<Args>(args)...}) {}
+            constexpr strong_type(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>): m_value(std::forward<Args>(args)...) {}
 
-            JMAN_NO_DISCARD constexpr T&                                    get() noexcept { return m_value; } // get as rvalue or lvalue depending on ref collapsing
-            JMAN_NO_DISCARD constexpr const std::remove_reference_t<T>&     get() const noexcept { return m_value; } // view
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&          get() & noexcept { return m_value; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&    get() const& noexcept { return m_value; } 
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&&         get() && noexcept { return m_value; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&&   get() const&& noexcept { return m_value; } 
 
-            JMAN_NO_DISCARD constexpr T&                                    operator*() noexcept { return m_value; } // get as rvalue or lvalue depending on ref collapsing
-            JMAN_NO_DISCARD constexpr const std::remove_reference_t<T>&     operator*() const noexcept { return m_value; } // view
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&          operator*() & noexcept { return m_value; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&    operator*() const& noexcept { return m_value; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&&         operator*() && noexcept { return m_value; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&&   operator*() const&& noexcept { return m_value; }
+
+            const T*                                                operator->() const noexcept { return jman::addressof(m_value); }
+            T*                                                      operator->() noexcept { return jman::addressof(m_value); }
 
             using ref = strong_type<T&, Tag, Skills...>; // returns a strong_type to reference the current value
-            operator ref() { return {m_value}; }
+            constexpr operator ref() { return {m_value}; }
     };
 } // namespace jman

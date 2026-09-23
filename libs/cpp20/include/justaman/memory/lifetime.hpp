@@ -2,7 +2,11 @@
 
 #include <justaman/utils/attributes.h>
 #include <cstddef>
+#include <type_traits>
 #include <utility>
+#if !(defined (__cpp_lib_constexpr_new) && __cpp_lib_constexpr_new >= 202406L)
+#   include <memory> // for std::construct_at fallback
+#endif
 
 namespace jman 
 {
@@ -19,7 +23,16 @@ template <typename T, typename ...Args>
 constexpr JMAN_FORCE_INLINE T* construct_at(T* ptr, Args&&... args)
     noexcept(std::is_nothrow_constructible_v<T, Args...>) 
 {
-    return ::new(static_cast<void*>(ptr)) T{std::forward<Args>(args)...};
+#   if defined (__cpp_lib_constexpr_new) && __cpp_lib_constexpr_new >= 202406L
+    // happy path! compiler supports constexpr placement new!
+        if constexpr (std::is_array_v<T>)
+            return ::new (static_cast<void*>(ptr)) T[1]();
+        else
+            return ::new(static_cast<void*>(ptr)) T{std::forward<Args>(args)...};
+#   else
+    // sad path :(, compiler doesnt support placement new with constexpr
+        return std::construct_at(ptr, std::forward<Args>(args)...);
+#   endif
 }
 
 

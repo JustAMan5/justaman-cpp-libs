@@ -1,8 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <justaman/containers/vector.hpp>
 #include <concepts>
-#include <cstdint>
 #include <initializer_list>
 #include <type_traits>
 #include <utility>
@@ -24,8 +24,11 @@ namespace jman
 
     /**
         @brief
-            a max heap priority queue wrapped around a vector, this implementation uses a raw priority number value
-            instead of a comparator function to determine which has more priority
+            a max heap priority queue wrapped around a vector, the comparator function must return true if 
+            @a has LOWER priority than @b, false if otherwise.
+            \n
+            if you want instead to use a comp func, use an external priority value, u can pass on the 
+            PolicyOrComp template a jman::use_external_priority_t
     */
     template <typename T, typename PolicyOrComp = std::less<T>>
     class priority_queue 
@@ -89,7 +92,7 @@ namespace jman
                 value_type  value;
             };
 
-            using note_t = std::conditional_t<is_keyed, value_node, keyed_node>;
+            using note_t = std::conditional_t<is_keyed, keyed_node, value_node>;
 
             jman::vector<note_t, size_type> m_data {};
             JMAN_NO_UNIQUE_ADDRESS std::conditional_t<is_keyed, empty_comp, PolicyOrComp> m_comp;
@@ -146,12 +149,31 @@ void priority_queue<T, PolicyOrComp>::m_sink(size_type index)
 template <typename T, typename PolicyOrComp>
 void priority_queue<T, PolicyOrComp>::m_swim(size_type index) requires(!is_keyed)
 {
-    
+    while (index > 0 && m_comp(m_data[(index - 1) / 2].value, m_data[index].value))
+    {   // continue swaping until the index becomes the root or when meeting someone with more priority
+        size_type parent = (index - 1) / 2;
+        std::swap(m_data[(index - 1) / 2], m_data[index]);
+        index = parent;
+    }
 }
 template <typename T, typename PolicyOrComp>
 void priority_queue<T, PolicyOrComp>::m_sink(size_type index) requires(!is_keyed)
 {
-    
+    while (2 * index + 1 < m_data.size()) // if atleast left child exists
+    {
+        size_type j = 2 * index + 1;
+
+        // if right exists and larger than left, make it the target
+        if (m_comp(m_data[j].value, m_data[j + 1].value) && j != m_data.size() - 1)
+            ++j;
+
+        // if parent is already larger than the largest child, we are done
+        if (m_comp(m_data[j].value, m_data[index].value))
+            break;
+
+        std::swap(m_data[index], m_data[j]);
+        index = j;
+    }
 }
 
 
@@ -168,10 +190,10 @@ priority_queue<T, PolicyOrComp>::priority_queue(std::initializer_list<std::pair<
     for (const auto& val: list)
         m_data.emplace_back(val.second, val.first);
 
-    if (length <= 1) return;
+    if (length < 2) return;
 
     // builds heap in place
-    for (std::int64_t i = length / 2 - 1; i >= 0; --i)
+    for (size_type i = length / 2; i-- > 0;)
         while (true)
         {
             size_type largest = i;
@@ -198,7 +220,37 @@ priority_queue<T, PolicyOrComp>::priority_queue(std::initializer_list<std::pair<
 template <typename T, typename PolicyOrComp>
 priority_queue<T, PolicyOrComp>::priority_queue(std::initializer_list<T> list) requires(!is_keyed)
 {
-    
+    size_type length = list.size();
+    m_data.reserve(length);
+
+    for (const auto& val: list)
+        m_data.emplace_back(val);
+
+    if (length < 2) return;
+
+    // builds heap in place
+    for (size_type i = length / 2; i-- > 0;)
+        while (true)
+        {
+            size_type largest = i;
+            size_type l = 2 * i + 1;
+            size_type r = 2 * i + 2;
+
+            // if left child is larger set it as largest
+            if (l < length && !m_comp(m_data[l].value, m_data[largest].value))
+                largest = l;
+
+            // if right child is larger set it as largest
+            if (r < length && !m_comp(m_data[r].value, m_data[largest].value))
+                largest = r;
+
+            // if largest is not the root swap them and heapify the sub tree
+            if (largest == i)
+                break;
+
+            std::swap(m_data[i], m_data[largest]);
+            i = largest;
+        }
 }
 
 // #####################################################################################

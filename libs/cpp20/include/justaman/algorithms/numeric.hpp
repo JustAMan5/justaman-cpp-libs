@@ -2,7 +2,7 @@
 
 #include <justaman/utils/attributes.h>
 #if !(defined (__has_builtin) && __has_builtin(__builtin_mul_overflow)) || \
-!(defined (__has_builtin) && __has_builtin(__builtin_add_overflow))
+    !(defined (__has_builtin) && __has_builtin(__builtin_add_overflow))
 #   include <type_traits>
 #   include <limits>
 #endif
@@ -54,7 +54,7 @@ constexpr bool validate_mul(const T& a, const T& b, T* result)
 {
     if (a == 0 || b == 0) return true;
     #if defined (__has_builtin) && __has_builtin(__builtin_mul_overflow)
-        return !__builtin_mul_overflow(a, b, &result);
+        return !__builtin_mul_overflow(a, b, result);
     #else
         *result = a * b;
         if constexpr (std::is_unsigned_v<T>)
@@ -79,7 +79,7 @@ JMAN_NO_DISCARD
 constexpr bool validate_add(const T& a, const T& b, T* result)
 {
     #if defined (__has_builtin) && __has_builtin(__builtin_add_overflow)
-        return !__builtin_add_overflow(a, b, &result);
+        return !__builtin_add_overflow(a, b, result);
     #else
         *result = a + b;
         if constexpr (std::is_unsigned_v<T>)

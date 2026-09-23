@@ -41,11 +41,11 @@ namespace jman
     */
     ///@{
     template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-    void qsort(Iterator start, Iterator end, Compare comp)
+    constexpr void qsort(Iterator start, Iterator end, Compare comp)
         noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
     template <std::random_access_iterator Iterator>
-    JMAN_FORCE_INLINE void qsort(Iterator start, Iterator end)
+    constexpr JMAN_FORCE_INLINE void qsort(Iterator start, Iterator end)
         noexcept(is_nothrow_sortable<Iterator>);
     ///@}
 
@@ -65,10 +65,10 @@ namespace jman
     */
     ///@{
     template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-    void msort(Iterator start, Iterator end, Compare comp); // no noexcept since it needs to allocate space for the temp vector for the copies
+    constexpr void msort(Iterator start, Iterator end, Compare comp); // no noexcept since it needs to allocate space for the temp vector for the copies
 
     template <std::random_access_iterator Iterator>
-    JMAN_FORCE_INLINE void msort(Iterator start, Iterator end);
+    constexpr JMAN_FORCE_INLINE void msort(Iterator start, Iterator end);
     ///@}
     /**
         @brief 
@@ -83,11 +83,11 @@ namespace jman
     */
     ///@{
     template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-    void hsort(Iterator start, Iterator end, Compare comp)
+    constexpr void hsort(Iterator start, Iterator end, Compare comp)
         noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
     template <std::random_access_iterator Iterator>
-    void hsort(Iterator start, Iterator end)
+    constexpr void hsort(Iterator start, Iterator end)
         noexcept(is_nothrow_sortable<Iterator>);
     ///@}
     /**
@@ -102,11 +102,11 @@ namespace jman
     */
     ///@{
     template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-    void isort(Iterator start, Iterator end, Compare comp)
+    constexpr void isort(Iterator start, Iterator end, Compare comp)
         noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
     template <std::random_access_iterator Iterator>
-    void isort(Iterator start, Iterator end)
+    constexpr void isort(Iterator start, Iterator end)
         noexcept(is_nothrow_sortable<Iterator>);
     ///@}
     /**
@@ -124,11 +124,11 @@ namespace jman
     */
     ///@{
     template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-    void ssort(Iterator start, Iterator end, Compare comp)
+    constexpr void ssort(Iterator start, Iterator end, Compare comp)
         noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
     template <std::random_access_iterator Iterator>
-    void ssort(Iterator start, Iterator end)
+    constexpr void ssort(Iterator start, Iterator end)
         noexcept(is_nothrow_sortable<Iterator>);
     ///@}
     /**
@@ -145,11 +145,11 @@ namespace jman
     */
     ///@{
     template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-    void sort(Iterator start, Iterator end, Compare comp)
+    constexpr void sort(Iterator start, Iterator end, Compare comp)
         noexcept(is_nothrow_sortable_comp<Iterator, Compare>);
 
     template <std::random_access_iterator Iterator>
-    void sort(Iterator start, Iterator end)
+    constexpr void sort(Iterator start, Iterator end)
         noexcept(jman::is_nothrow_sortable<Iterator>);
     ///@}
 } // namespace jman
@@ -169,7 +169,7 @@ struct intro_sort_task
 };
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
-Iterator qsort_partition(Iterator start, Iterator end, Comp comp)
+constexpr Iterator qsort_partition(Iterator start, Iterator end, Comp comp)
     noexcept(jman::is_nothrow_sortable_comp<Iterator, Comp>) 
 {
     auto mid = start + (end - start) / 2;
@@ -195,7 +195,7 @@ Iterator qsort_partition(Iterator start, Iterator end, Comp comp)
 }
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
-void hsort_heapify(Iterator start, Iterator end, std::size_t i, Comp comp) 
+constexpr void hsort_heapify(Iterator start, Iterator end, std::size_t i, Comp comp) 
     noexcept(jman::is_nothrow_sortable_comp<Iterator, Comp>)
 {
     std::size_t length = end - start;
@@ -224,7 +224,7 @@ void hsort_heapify(Iterator start, Iterator end, std::size_t i, Comp comp)
 }
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
-void msort_merge(
+constexpr void msort_merge(
     Iterator L1, Iterator R1, 
     Iterator L2, Iterator R2, 
     jman::vector<std::iter_value_t<Iterator>>* temp,
@@ -283,7 +283,7 @@ namespace jman
 // #################################################################################
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-void qsort(Iterator start, Iterator end, Compare comp)
+constexpr void qsort(Iterator start, Iterator end, Compare comp)
     noexcept(jman::is_nothrow_sortable_comp<Iterator, Compare>)
 {
     if (end - start <= 1) return; // must have 2 or more elements
@@ -333,7 +333,7 @@ void qsort(Iterator start, Iterator end, Compare comp)
 }
 
 template <std::random_access_iterator Iterator>
-JMAN_FORCE_INLINE void qsort(Iterator first, Iterator last)
+constexpr JMAN_FORCE_INLINE void qsort(Iterator first, Iterator last)
     noexcept(is_nothrow_sortable<Iterator>)
 {
     qsort(first, last, std::less{});
@@ -345,7 +345,7 @@ JMAN_FORCE_INLINE void qsort(Iterator first, Iterator last)
 
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-void msort(Iterator start, Iterator end, Compare comp)
+constexpr void msort(Iterator start, Iterator end, Compare comp)
 {
     using T = std::iter_value_t<Iterator>;
 
@@ -384,7 +384,7 @@ void msort(Iterator start, Iterator end, Compare comp)
 
 template <typename Iterator>
 requires std::random_access_iterator<Iterator>
-JMAN_FORCE_INLINE void msort(Iterator first, Iterator last)
+constexpr JMAN_FORCE_INLINE void msort(Iterator first, Iterator last)
 {
     msort(first, last, std::less{});
 }
@@ -395,7 +395,7 @@ JMAN_FORCE_INLINE void msort(Iterator first, Iterator last)
 
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-void hsort(Iterator start, Iterator end, Compare comp)
+constexpr void hsort(Iterator start, Iterator end, Compare comp)
     noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
     std::size_t length = end - start;
@@ -417,7 +417,7 @@ void hsort(Iterator start, Iterator end, Compare comp)
 }
 
 template <std::random_access_iterator Iterator>
-JMAN_FORCE_INLINE void hsort(Iterator first, Iterator last)
+constexpr JMAN_FORCE_INLINE void hsort(Iterator first, Iterator last)
     noexcept(is_nothrow_sortable<Iterator>)
 {
     hsort(first, last, std::less{});
@@ -429,7 +429,7 @@ JMAN_FORCE_INLINE void hsort(Iterator first, Iterator last)
 
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-void isort(Iterator start, Iterator end, Compare comp)
+constexpr void isort(Iterator start, Iterator end, Compare comp)
     noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
     std::size_t length = end - start;
@@ -454,7 +454,7 @@ void isort(Iterator start, Iterator end, Compare comp)
 }
 
 template <std::random_access_iterator Iterator>
-JMAN_FORCE_INLINE void isort(Iterator first, Iterator last)
+constexpr JMAN_FORCE_INLINE void isort(Iterator first, Iterator last)
     noexcept(is_nothrow_sortable<Iterator>)
 {
     isort(first, last, std::less{});
@@ -467,7 +467,7 @@ JMAN_FORCE_INLINE void isort(Iterator first, Iterator last)
 
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-void ssort(Iterator start, Iterator end, Compare comp)
+constexpr void ssort(Iterator start, Iterator end, Compare comp)
     noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
     std::size_t length = end - start;
@@ -492,7 +492,7 @@ void ssort(Iterator start, Iterator end, Compare comp)
 }
 
 template <std::random_access_iterator Iterator>
-JMAN_FORCE_INLINE void ssort(Iterator first, Iterator last)
+constexpr JMAN_FORCE_INLINE void ssort(Iterator first, Iterator last)
     noexcept(is_nothrow_sortable<Iterator>)
 {
     ssort(first, last, std::less{});
@@ -504,7 +504,7 @@ JMAN_FORCE_INLINE void ssort(Iterator first, Iterator last)
 // #################################################################################
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-void sort(Iterator start, Iterator end, Compare comp)
+constexpr void sort(Iterator start, Iterator end, Compare comp)
     noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
     std::size_t length = end - start;
@@ -554,7 +554,7 @@ void sort(Iterator start, Iterator end, Compare comp)
 }
 
 template <std::random_access_iterator Iterator>
-JMAN_FORCE_INLINE void sort(Iterator first, Iterator last)
+constexpr JMAN_FORCE_INLINE void sort(Iterator first, Iterator last)
     noexcept(is_nothrow_sortable<Iterator>)
 {
     sort(first, last, std::less{});
