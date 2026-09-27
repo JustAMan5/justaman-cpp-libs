@@ -6,9 +6,8 @@ project(
 )
 
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 if(PROJECT_IS_TOP_LEVEL) # copy the compile commands to the source dir for clangd to find it
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_BINARY_DIR}/compile_commands.json" 
@@ -24,9 +23,10 @@ endif()
 #     message(WARNING "Active compiler doesnt support time profiling")
 # endif()
 
-add_subdirectory(libs)
+add_subdirectory(libs) # load the packages
 if(PROJECT_IS_TOP_LEVEL)
-    add_subdirectory(tests)
+    enable_testing()
+    add_subdirectory(tests) # load the tests if project is top level
 endif()
 
 message(STATUS "------------------------ JustAMan's C++ libs --------------------------")

@@ -1,45 +1,14 @@
-#include <cassert>
-#include <charconv>
-#include <iomanip>
-#include <iostream>
-#include <optional>
-#include <string_view>
-#include <system_error>
+#include <justaman/io/dotenv.hpp>
+#include <justaman/io/logger.hpp>
 
-int main()
-{
-    for (std::string_view const str : {"1234", "15 foo", "bar", " 42", "5000000000"})
-    {
-        std::cout << "String: " << std::quoted(str) << ". ";
-        int result{};
-        auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), result);
 
-        if (ec == std::errc())
-            std::cout << "Result: " << result << ", ptr -> " << std::quoted(ptr) << '\n';
-        else if (ec == std::errc::invalid_argument)
-            std::cout << "This is not a number.\n";
-        else if (ec == std::errc::result_out_of_range)
-            std::cout << "This number is larger than an int.\n";
-    }
-
-    // C++23's constexpr from_char demo / C++26's operator bool() demo:
-    auto to_int = [](std::string_view s) -> std::optional<int>
-    {
-        int value{};
-#if __cpp_lib_to_chars >= 202306L
-        if (std::from_chars(s.data(), s.data() + s.size(), value))
-#else
-        if (std::from_chars(s.data(), s.data() + s.size(), value).ec == std::errc{})
-#endif
-            return value;
-        else
-            return std::nullopt;
-    };
-
-    assert(to_int("42") == 42);
-    assert(to_int("foo") == std::nullopt);
-#if __cpp_lib_constexpr_charconv and __cpp_lib_optional >= 202106
-    static_assert(to_int("42") == 42);
-    static_assert(to_int("foo") == std::nullopt);
-#endif
+void test() {
+    jman::dotenv env{};
+    jman::println("loaded: {}",         env.load(std::string(PROJECT_SRC_DIR) + "/.env"));
+    jman::println("PORT: {}",           env.get<int>("PORT", 6767));
+    jman::println("DATABASE_URL: {}",   env.get_view("DATABASE_URL", "sad fallback"));
+    jman::println("JWT_SECRET: {}",     env.get_view("JWT_SECRET", "sad fallback"));
+    jman::println("DEBUG: {}",          env.get<bool>("DEBUG", false));
+    jman::println("ENCRYPTION_KEY: {}", env.get<std::size_t>("ENCRYPTION_KEY", 67));
+    jman::println("NO_QUOTED_TEXT: {}", env.get<std::string>("NO_QUOTED_TEXT", "not found bro"));
 }
