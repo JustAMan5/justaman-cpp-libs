@@ -1,14 +1,33 @@
+# -------- cmake
 /build/
 /build*/
 /out/
-
-/.vscode
+/vendor
 
 /CMakeUserPresets.json
 /CMakeLists.txt.user*
 /compile_commands.json
+/CMakeCache.txt
+/CMakeFiles
+/CMakeScripts
+/Testing
+/Makefile
+/cmake_install.cmake
+/install_manifest.txt
+/CTestTestfile.cmake
+/_deps
 
+# -------- vs code
+/.vscode
+
+# -------- clangd
 /.cache/
 /.clangd/index/
+*.gcno
+*.gcda
+*.gcov
 
+# -------- env
 /.env
+/.env.local
+/*.env

@@ -95,13 +95,13 @@ namespace jman
             * @note: internally it uses std::discrete_distribution, so there is a heap allocation internally for cache or smt idk, so watch out 
             */
             template<std::floating_point T = float>
-            JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE   weighted_index(const std::vector<T>& weights);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t   weighted_index(const std::vector<T>& weights);
 
             /** 
             * @note: internally it uses std::discrete_distribution, so there is a heap allocation internally for cache or smt idk, so watch out 
             */
             template<std::floating_point T = float>
-            JMAN_NO_DISCARD std::size_t JMAN_FORCE_INLINE   weighted_index(std::initializer_list<T> weights);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t   weighted_index(std::initializer_list<T> weights);
     };  
 } // namespace jman
 

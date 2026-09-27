@@ -30,9 +30,9 @@
 // #######################################################################################
 
 #if defined(_MSC_VER)
-#   define JMAN_FORCE_INLINE inline __forceinline
+#   define JMAN_FORCE_INLINE __forceinline inline
 #elif defined(__GNUC__) || defined(__clang__)
-#   define JMAN_FORCE_INLINE inline __attribute__((always_inline))
+#   define JMAN_FORCE_INLINE [[gnu::always_inline]] inline
 #else
 #   define JMAN_FORCE_INLINE inline
 #endif
@@ -49,8 +49,8 @@
 
 #elif defined(__GNUC__) || defined(__clang__) // GCC and Clang have it as compiler extensions for both C and C++
 
-#   define JMAN_NO_DISCARD __attribute__((warn_unused_result))
-#   define JMAN_NO_DISCARD_REASON(x) __attribute__((warn_unused_result))
+#   define JMAN_NO_DISCARD [[gnu::warn_unused]]
+#   define JMAN_NO_DISCARD_REASON(x) [[gnu::warn_unused_result(x)]]
 
 #elif defined(_MSC_VER)
 
@@ -76,8 +76,8 @@
 
 #elif defined(__GNUC__) || defined(__clang__) // GCC and Clang have it as compiler extensions for both C and C++
 
-#   define JMAN_DEPRECATED __attribute__((deprecated))
-#   define JMAN_DEPRECATED_SUGGEST(x) __attribute__((deprecated("Use [" x "] instead.")))
+#   define JMAN_DEPRECATED [[gnu::deprecated]]
+#   define JMAN_DEPRECATED_SUGGEST(x) [[gnu::deprecated("Use [" x "] instead.")]]
 
 #elif defined(_MSC_VER)
 
@@ -92,7 +92,7 @@
 #endif
 
 // #####################################################################################
-// ------------------------------------- NO_UNIQUE_ADDRESS ----------------------------------//
+// ---------------------------------- NO_UNIQUE_ADDRESS ------------------------------//
 // #####################################################################################
 
 #if (defined(__cplusplus) && __cplusplus >= 202002L)
@@ -104,6 +104,22 @@
 #   endif
 #else
 #   define JMAN_NO_UNIQUE_ADDRESS
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#   define JMAN_RESTRICT __restrict__
+#elif defined(_MSC_VER)
+#   define JMAN_RESTRICT __restrict
+#else
+#   define JMAN_RESTRICT
+#endif
+
+// #####################################################################################
+// ----------------------------------- SUPPORTS SIMD ---------------------------------//
+// #####################################################################################
+
+#if defined(__AVX2__) || defined(__SSE2__) || defined(_M_AMD64) || defined(__ARM_NEON)
+#   define JMAN_HARDWARE_SUPPORTS_SIMD 1
 #endif
 
 #endif // JMAN_COMPILER_ATTRIBUTES_H_LIB

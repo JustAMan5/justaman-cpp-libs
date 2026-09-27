@@ -7,6 +7,7 @@
 #include <format>
 #include <source_location>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <version> // forced to include it to avoid some weird problems when using std::println
 #if defined (__cpp_lib_print) && __cpp_lib_print >= 202207L

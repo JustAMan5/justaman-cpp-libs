@@ -1,30 +1,45 @@
-#include "justaman/containers/vector.hpp"
-#include "justaman/io/logger.hpp"
+#include <cassert>
+#include <charconv>
+#include <iomanip>
+#include <iostream>
+#include <optional>
+#include <string_view>
+#include <system_error>
 
-// enum class dividing_error: unsigned char {
-//     second_zero = 0,
-// };
-
-// jman::expected<float, dividing_error> divide(float a, float b)
-// {
-//     if (b == 0) return jman::unexpected{dividing_error::second_zero};
-//     return a / b;
-// }
-
-int main() 
+int main()
 {
-    jman::vector<float> list {1, 2, 3, 4, 5, 6, 7, 8};
-    // list.reserve(50);
-    // list.insert(2, 5, 1000);
+    for (std::string_view const str : {"1234", "15 foo", "bar", " 42", "5000000000"})
+    {
+        std::cout << "String: " << std::quoted(str) << ". ";
+        int result{};
+        auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), result);
 
-    // for (auto val: list)
-    //     jman::println("{}", val);
+        if (ec == std::errc())
+            std::cout << "Result: " << result << ", ptr -> " << std::quoted(ptr) << '\n';
+        else if (ec == std::errc::invalid_argument)
+            std::cout << "This is not a number.\n";
+        else if (ec == std::errc::result_out_of_range)
+            std::cout << "This number is larger than an int.\n";
+    }
 
-    // jman::println("----------------------------");
+    // C++23's constexpr from_char demo / C++26's operator bool() demo:
+    auto to_int = [](std::string_view s) -> std::optional<int>
+    {
+        int value{};
+#if __cpp_lib_to_chars >= 202306L
+        if (std::from_chars(s.data(), s.data() + s.size(), value))
+#else
+        if (std::from_chars(s.data(), s.data() + s.size(), value).ec == std::errc{})
+#endif
+            return value;
+        else
+            return std::nullopt;
+    };
 
-    list.erase(3, 6);
-    jman::println("{}", list.size());
-
-    for (auto val: list)
-        jman::println("- {}", val);
+    assert(to_int("42") == 42);
+    assert(to_int("foo") == std::nullopt);
+#if __cpp_lib_constexpr_charconv and __cpp_lib_optional >= 202106
+    static_assert(to_int("42") == 42);
+    static_assert(to_int("foo") == std::nullopt);
+#endif
 }

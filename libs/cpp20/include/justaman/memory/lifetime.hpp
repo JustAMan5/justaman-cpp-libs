@@ -20,7 +20,7 @@ namespace jman
         wrapper around regular placement-new operator
 */
 template <typename T, typename ...Args>
-constexpr JMAN_FORCE_INLINE T* construct_at(T* ptr, Args&&... args)
+JMAN_FORCE_INLINE constexpr T* construct_at(T* ptr, Args&&... args)
     noexcept(std::is_nothrow_constructible_v<T, Args...>) 
 {
 #   if defined (__cpp_lib_constexpr_new) && __cpp_lib_constexpr_new >= 202406L
@@ -45,7 +45,7 @@ constexpr JMAN_FORCE_INLINE T* construct_at(T* ptr, Args&&... args)
         wrapper around regualar destructor call. Doesn't call destructor if its trivial.
 */
 template <typename T>
-constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr)
+JMAN_FORCE_INLINE constexpr void destruct_at(T* ptr)
     noexcept(std::is_nothrow_destructible_v<T>)
 {
     if constexpr (!std::is_trivially_destructible_v<T>)
@@ -59,7 +59,7 @@ constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr)
     @param count: amount of objects to destroy, the type for count is std::ptrdiff_t
 */
 template <typename T>
-constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr, std::ptrdiff_t count)
+JMAN_FORCE_INLINE constexpr void destruct_at(T* ptr, std::ptrdiff_t count)
     noexcept(std::is_nothrow_destructible_v<T>)
 {
     if constexpr (std::is_trivially_destructible_v<T>)
@@ -76,7 +76,7 @@ constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr, std::ptrdiff_t count)
     @param count: amount of objects to destroy, the type for count is std::ptrdiff_t
 */
 template <typename T>
-constexpr JMAN_FORCE_INLINE void destruct_at(std::ptrdiff_t count, T* ptr)
+JMAN_FORCE_INLINE constexpr void destruct_at(std::ptrdiff_t count, T* ptr)
     noexcept(std::is_nothrow_destructible_v<T>)
 {
     if constexpr (std::is_trivially_destructible_v<T>)
@@ -93,7 +93,7 @@ constexpr JMAN_FORCE_INLINE void destruct_at(std::ptrdiff_t count, T* ptr)
     @param count: amount of objects to destroy, the type for count is std::size_t
 */
 template <typename T>
-constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr, std::size_t count)
+JMAN_FORCE_INLINE constexpr void destruct_at(T* ptr, std::size_t count)
     noexcept(std::is_nothrow_destructible_v<T>)
 {
     if constexpr (std::is_trivially_destructible_v<T>)
@@ -110,7 +110,7 @@ constexpr JMAN_FORCE_INLINE void destruct_at(T* ptr, std::size_t count)
     @param count: amount of objects to destroy, the type for count is std::size_t
 */
 template <typename T>
-constexpr JMAN_FORCE_INLINE void destruct_at(std::size_t count, T* ptr)
+JMAN_FORCE_INLINE constexpr void destruct_at(std::size_t count, T* ptr)
     noexcept(std::is_nothrow_destructible_v<T>)
 {
     if constexpr (std::is_trivially_destructible_v<T>)
@@ -129,7 +129,7 @@ constexpr JMAN_FORCE_INLINE void destruct_at(std::size_t count, T* ptr)
         Grabs the real address of the specified object bypassing any overload for the & operator for that class
 */
 template <class T>
-JMAN_NO_DISCARD constexpr JMAN_FORCE_INLINE T* addressof(T& x) noexcept
+JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T* addressof(T& x) noexcept
 {
 #   if defined (__has_builtin) && __has_builtin(__builtin_addressof)
         return __builtin_addressof(x);

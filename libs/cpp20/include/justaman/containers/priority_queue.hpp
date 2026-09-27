@@ -1,8 +1,6 @@
 #pragma once
 
-#include <functional>
 #include <justaman/containers/vector.hpp>
-#include <concepts>
 #include <initializer_list>
 #include <type_traits>
 #include <utility>
@@ -40,12 +38,12 @@ namespace jman
         static constexpr bool is_keyed = std::is_same_v<PolicyOrComp, use_external_priority_t>;
 
         public:
+            using container_type    = jman::vector<T, std::size_t>;
+            using value_compare     = PolicyOrComp;
             using value_type        = T;
             using size_type         = std::size_t;
             using reference         = T&;
             using const_reference   = const T&;
-            using pointer           = T*;
-            using const_pointer     = const T*;
         
             priority_queue() noexcept = default;
 
@@ -92,18 +90,24 @@ namespace jman
                 value_type  value;
             };
 
-            using note_t = std::conditional_t<is_keyed, keyed_node, value_node>;
+            using node_t = std::conditional_t<is_keyed, keyed_node, value_node>;
 
-            jman::vector<note_t, size_type> m_data {};
+            jman::vector<node_t, size_type> m_data {};
             JMAN_NO_UNIQUE_ADDRESS std::conditional_t<is_keyed, empty_comp, PolicyOrComp> m_comp;
         private:
             void m_swim(size_type index)
-                noexcept(std::is_nothrow_swappable_v<T>) requires(is_keyed); // fix up
+                noexcept(std::is_nothrow_swappable_v<T>) 
+                requires(is_keyed); // fix up
             void m_sink(size_type index)
-                noexcept(std::is_nothrow_swappable_v<T>) requires(is_keyed); // fix down
+                noexcept(std::is_nothrow_swappable_v<T>) 
+                requires(is_keyed); // fix down
 
-            void m_swim(size_type index) requires(!is_keyed); // fix up
-            void m_sink(size_type index) requires(!is_keyed); // fix down
+            void m_swim(size_type index) 
+                noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&>) 
+                requires(!is_keyed); // fix up
+            void m_sink(size_type index) 
+                noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&>)
+                requires(!is_keyed); // fix down
     };
 } // namespace jman
 
@@ -116,7 +120,8 @@ namespace jman
 
 template <typename T, typename PolicyOrComp>
 void priority_queue<T, PolicyOrComp>::m_swim(size_type index)
-    noexcept(std::is_nothrow_swappable_v<T>) requires(is_keyed)
+    noexcept(std::is_nothrow_swappable_v<T>) 
+    requires(is_keyed)
 {
     while (index > 0 && m_data[(index - 1) / 2].priority < m_data[index].priority)
     {   // continue swaping until the index becomes the root or when meeting someone with more priority
@@ -127,7 +132,8 @@ void priority_queue<T, PolicyOrComp>::m_swim(size_type index)
 }
 template <typename T, typename PolicyOrComp>
 void priority_queue<T, PolicyOrComp>::m_sink(size_type index)
-    noexcept(std::is_nothrow_swappable_v<T>) requires(is_keyed)
+    noexcept(std::is_nothrow_swappable_v<T>) 
+    requires(is_keyed)
 {
     while (2 * index + 1 < m_data.size()) // if atleast left child exists
     {
@@ -147,7 +153,9 @@ void priority_queue<T, PolicyOrComp>::m_sink(size_type index)
 }
 
 template <typename T, typename PolicyOrComp>
-void priority_queue<T, PolicyOrComp>::m_swim(size_type index) requires(!is_keyed)
+void priority_queue<T, PolicyOrComp>::m_swim(size_type index)
+    noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&>)
+    requires(!is_keyed)
 {
     while (index > 0 && m_comp(m_data[(index - 1) / 2].value, m_data[index].value))
     {   // continue swaping until the index becomes the root or when meeting someone with more priority
@@ -157,7 +165,9 @@ void priority_queue<T, PolicyOrComp>::m_swim(size_type index) requires(!is_keyed
     }
 }
 template <typename T, typename PolicyOrComp>
-void priority_queue<T, PolicyOrComp>::m_sink(size_type index) requires(!is_keyed)
+void priority_queue<T, PolicyOrComp>::m_sink(size_type index) 
+    noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&>)
+    requires(!is_keyed)
 {
     while (2 * index + 1 < m_data.size()) // if atleast left child exists
     {

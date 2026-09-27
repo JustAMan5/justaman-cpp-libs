@@ -126,7 +126,7 @@ namespace jman
             JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator                  find(size_type index) noexcept;
             JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator            find(size_type index) const noexcept;
 
-            JMAN_NO_DISCARD bool                                        contains(const_reference value) const;
+            JMAN_NO_DISCARD bool                                        contains(const_reference value) const noexcept(noexcept(std::declval<T>() == std::declval<T>()));
 
             // ################################################
             // ------------------------------------- iterators
@@ -168,22 +168,22 @@ namespace jman
             // ##################################################
 
             template <std::predicate<T> Predicate>
-            JMAN_NO_DISCARD iterator                            find_first_if(Predicate pred);
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          find_first(const_reference);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          find_first_if(Predicate pred) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          find_first(const_reference) noexcept(noexcept(std::declval<T>() == std::declval<T>()));
 
             template <std::predicate<T> Predicate>
-            JMAN_NO_DISCARD const_iterator                      find_first_if(Predicate pred) const;
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    find_first(const_reference) const;
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    find_first_if(Predicate pred) const noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    find_first(const_reference) const noexcept(noexcept(std::declval<T>() == std::declval<T>()));
 
             template <std::predicate<T> Predicate>
-            void                                                remove_if(Predicate pred);
-            void                                                remove(const_reference value);
-            void                                                reverse();
-            size_type                                           unique();
+            void                                                remove_if(Predicate pred) noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
+            void                                                remove(const_reference value) noexcept(!m_needs_rollback_on_assign && noexcept(std::declval<T>() == std::declval<T>()));
+            void                                                reverse() noexcept(std::is_nothrow_swappable_v<T>);
+            size_type                                           unique() noexcept(!m_needs_rollback_on_assign && noexcept(std::declval<T>() == std::declval<T>()));
             template <std::predicate<T, T> Predicate>
-            size_type                                           unique(Predicate pred);
+            size_type                                           unique(Predicate pred) noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
             template <std::predicate<T> Predicate>
-            void                                                retain(Predicate pred);
+            void                                                retain(Predicate pred) noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
 
             // ####################################################
             // -------------------------------- elements insertion
@@ -243,11 +243,21 @@ namespace jman
                 size_type   m_capacity  {0};
                 size_type   m_size      {0};
 
-                constexpr static bool m_NEEDS_ROLLBACK_ON_CONSTRUCT =
+                constexpr static bool m_needs_rollback_on_construct =
                     !std::is_nothrow_move_constructible_v<T> && !std::is_nothrow_copy_constructible_v<T>; 
 
-                constexpr static bool m_NEEDS_ROLLBACK_ON_ASSIGN =
+                constexpr static bool m_needs_rollback_on_assign =
                     (!std::is_nothrow_move_assignable_v<T> && !std::is_nothrow_copy_assignable_v<T>);
+
+                constexpr static bool m_is_trivial_type =           std::is_trivially_copyable_v<T>;
+                constexpr static bool m_is_good_size =              sizeof(T) == 1 || sizeof(T) == 2 || 
+                                                                        sizeof(T) == 4 || sizeof(T) == 8 || 
+                                                                        sizeof(T) == 16;
+#if defined (JMAN_HARDWARE_SUPPORTS_SIMD)
+                constexpr static bool m_hardware_supports_simd =        true;
+#else
+                constexpr static bool m_hardware_supports_simd =        false;
+#endif
 
             protected:
                 // shortcuts for calculating calculating capacities for when calling m_alloc() 
@@ -262,9 +272,9 @@ namespace jman
                 // shortcut for growing the vector
                 void                                m_grow(size_type increase = 1);
 
-                void                                m_shift_right(size_type index, size_type count);
+                void                                m_shift_right(size_type index, size_type count) noexcept(!m_needs_rollback_on_construct && !m_needs_rollback_on_assign);
                 // note that this func leaves the tail of undefined but still constructed elements, so the caller function must call its destructors
-                void                                m_shift_left(size_type index, size_type count);
+                void                                m_shift_left(size_type index, size_type count) noexcept(!m_needs_rollback_on_assign);
             
                 template <bool Move>
                 void                                m_insert_range(size_type index, T* src, size_type count);
@@ -296,7 +306,7 @@ namespace jman::detail
             explicit vector_const_iterator(T* ptr) noexcept: m_ptr(ptr) {}
 
             JMAN_FORCE_INLINE 
-            reference operator[](difference_type index) const                                       { return m_ptr[index]; }
+            reference operator[](difference_type index) const noexcept                                { return m_ptr[index]; }
 
             JMAN_FORCE_INLINE 
             vector_const_iterator&    operator++() noexcept                                           { m_ptr += 1; return *this; }
@@ -319,13 +329,12 @@ namespace jman::detail
             vector_const_iterator&    operator+=(difference_type diff) noexcept                       { m_ptr += diff; return *this; }
             JMAN_FORCE_INLINE 
             vector_const_iterator&    operator-=(difference_type diff) noexcept                       { m_ptr -= diff; return *this; }
-            friend JMAN_FORCE_INLINE 
-            vector_const_iterator     operator+(difference_type diff, vector_const_iterator it) noexcept     { return {diff + it.m_ptr}; }
+            JMAN_FORCE_INLINE friend  vector_const_iterator     operator+(difference_type diff, vector_const_iterator it) noexcept     { return {diff + it.m_ptr}; }
 
             JMAN_FORCE_INLINE 
-            pointer                   operator->() const  { return m_ptr; }
+            pointer                   operator->() const noexcept  { return m_ptr; }
             JMAN_FORCE_INLINE 
-            reference                 operator*() const   { return *m_ptr; }
+            reference                 operator*() const noexcept   { return *m_ptr; }
 
             auto operator <=>(const vector_const_iterator&) const = default;
     }; // vector_const_iterator
@@ -357,7 +366,7 @@ namespace jman::detail
             vector_iterator               operator--(int) noexcept                                { vector_iterator retval = *this; --(*this); return retval; }
 
             JMAN_FORCE_INLINE 
-            reference                     operator[](difference_type index) const                 { return m_ptr[index]; }
+            reference                     operator[](difference_type index) const noexcept        { return m_ptr[index]; }
             
             JMAN_FORCE_INLINE 
             vector_iterator               operator+(difference_type index) const noexcept         { return vector_iterator(m_ptr + index); }
@@ -371,16 +380,15 @@ namespace jman::detail
             vector_iterator&              operator+=(difference_type diff) noexcept               { m_ptr += diff; return *this; }
             JMAN_FORCE_INLINE 
             vector_iterator&              operator-=(difference_type diff) noexcept               { m_ptr -= diff; return *this; }
-            friend JMAN_FORCE_INLINE 
-            vector_iterator               operator+(difference_type diff, vector_iterator it) noexcept   { return {diff + it.m_ptr}; }
+            JMAN_FORCE_INLINE friend vector_iterator   operator+(difference_type diff, vector_iterator it) noexcept   { return {diff + it.m_ptr}; }
 
             JMAN_FORCE_INLINE 
-            pointer                       operator->() const                  { return m_ptr; }
+            pointer                       operator->() const noexcept         { return m_ptr; }
             JMAN_FORCE_INLINE 
-            reference                     operator*() const                   { return *m_ptr; }
+            reference                     operator*() const noexcept          { return *m_ptr; }
 
-            auto operator <=>(const vector_iterator&) const = default;
-            operator vector_const_iterator<T>() const                         { return {m_ptr}; };
+            auto operator <=>(const vector_iterator&) const noexcept          = default;
+            operator vector_const_iterator<T>() const  noexcept               { return {m_ptr}; };
     }; // vector_iterator
 
 } // namespace jman::detail
@@ -438,17 +446,21 @@ JMAN_FORCE_INLINE void vector<T, S>::m_dealloc(T* ptr) noexcept
 
 template <typename T, typename S>
 void vector<T, S>::m_shift_right(size_type index, size_type count) 
+    noexcept(!m_needs_rollback_on_construct && !m_needs_rollback_on_assign)
 {
     size_type elements_to_move = m_size - index;
     if (elements_to_move == 0) return;
 
-    if constexpr (std::is_trivially_copyable_v<T>)
+    if constexpr (m_is_trivial_type)
         std::memmove(m_buffer + index + count, m_buffer + index, sizeof(T) * elements_to_move);
     else 
     {
         size_type moved = 0;
         auto guard = jman::scope_guard{[&](){
-            if constexpr (m_NEEDS_ROLLBACK_ON_ASSIGN)
+            if constexpr (
+                m_needs_rollback_on_assign || 
+                m_needs_rollback_on_construct
+            )
                 for (size_type i = 0; i < moved; ++i) {
                     size_type current_idx = m_size + count - i;
                     size_type original_idx = current_idx - count;
@@ -475,18 +487,19 @@ void vector<T, S>::m_shift_right(size_type index, size_type count)
 }
 template <typename T, typename S>
 void vector<T, S>::m_shift_left(size_type index, size_type count)
+    noexcept(!m_needs_rollback_on_assign)
 {   
     size_type elements_to_move = m_size - (index + count);
     if (elements_to_move == 0) return;
 
-    if constexpr (std::is_trivially_copyable_v<T>)
+    if constexpr (m_is_trivial_type)
         std::memmove(m_buffer + index, m_buffer + index + count, sizeof(T) * elements_to_move);
     else 
     {
         size_type moved = 0;
 
         auto guard = jman::scope_guard{[&](){
-            if constexpr (m_NEEDS_ROLLBACK_ON_ASSIGN)
+            if constexpr (m_needs_rollback_on_assign)
                 for (size_type i = moved; i-- > 0;) {
                     size_type current_idx = index + i;
                     size_type original_idx = current_idx + count;
@@ -523,7 +536,7 @@ void vector<T, S>::m_grow(size_type increase)
     size_type newCapacity = m_growth_capacity(required);
     T* ptr = m_alloc(newCapacity);
 
-    if constexpr (std::is_trivially_copyable_v<T>)
+    if constexpr (m_is_trivial_type)
         std::memcpy(ptr, m_buffer, sizeof(T) * newCapacity);
     else 
     {
@@ -531,7 +544,7 @@ void vector<T, S>::m_grow(size_type increase)
 
         auto guard = jman::scope_guard{[&](){
             // destroys the constructed and deallocated and acts like nothing happened
-            if constexpr (m_NEEDS_ROLLBACK_ON_CONSTRUCT) {
+            if constexpr (m_needs_rollback_on_construct) {
                 jman::destruct_at(constructed, ptr);
                 m_dealloc(ptr);
             }
@@ -588,14 +601,14 @@ void vector<T, S>::m_insert_range(size_type index, T* src, size_type count)
 
         auto guard = jman::scope_guard{[&](){
                 if constexpr (
-                    m_NEEDS_ROLLBACK_ON_ASSIGN || m_NEEDS_ROLLBACK_ON_CONSTRUCT
+                    m_needs_rollback_on_assign || m_needs_rollback_on_construct
                 ){
                     jman::destruct_at(constructed, newBuffer);
                     m_dealloc(newBuffer);
                 }
             }};
 
-        if constexpr (std::is_trivially_copyable_v<T>) {
+        if constexpr (m_is_trivial_type) {
             // copy the elements before the insertion point
             std::memcpy(newBuffer, m_buffer, sizeof(T) * index);
             // copy the elements past the insertion point
@@ -657,7 +670,7 @@ vector<T, S>::vector(std::initializer_list<T> list)
     size_type newCapacity = jman::max(static_cast<size_type>(list.size()), MIN_CAPACITY);
     m_buffer = m_alloc(newCapacity);
 
-    if (std::is_trivially_copyable_v<T>) {
+    if (m_is_trivial_type) {
         std::memcpy(m_buffer, list.begin(), list.size() * sizeof(T));
         m_size = list.size();
     } else {
@@ -746,7 +759,7 @@ vector<T, S>::vector(const vector& other)
     size_type newCapacity = other.m_capacity;
     m_buffer = m_alloc(newCapacity);
 
-    if (std::is_trivially_copyable_v<T>) {
+    if (m_is_trivial_type) {
         std::memcpy(m_buffer, other.m_buffer, other.m_size * sizeof(T));
         m_size = other.m_size;
     } else {
@@ -784,7 +797,7 @@ vector<T, S>& vector<T, S>::operator=(const vector& other)
     {
         T* buff = m_alloc(other.m_capacity);
         
-        if (std::is_trivially_copyable_v<T>)
+        if (m_is_trivial_type)
             std::memcpy(buff, other.m_buffer, sizeof(T) * other.m_size);
         else {
             size_type constructed = 0;
@@ -812,7 +825,7 @@ vector<T, S>& vector<T, S>::operator=(const vector& other)
     } else 
         // safely reuse the current block 
     {
-        if (std::is_trivially_copyable_v<T>)
+        if (m_is_trivial_type)
             std::memcpy(m_buffer, other.m_buffer, sizeof(T) * other.m_size);
         else
             for (size_type i = 0; i < other.m_size; ++i)
@@ -875,7 +888,7 @@ vector<T, S>& vector<T, S>::operator=(std::initializer_list<T> list)
     {
         T* buff = m_alloc(newCapacity);
         
-        if (std::is_trivially_copyable_v<T>)
+        if (m_is_trivial_type)
             std::memcpy(buff, list.begin(), sizeof(T) * list.size());
         else {
             size_type constructed = 0;
@@ -903,7 +916,7 @@ vector<T, S>& vector<T, S>::operator=(std::initializer_list<T> list)
     } else 
         // safely reuse the current block 
     {
-        if (std::is_trivially_copyable_v<T>)
+        if (m_is_trivial_type)
             std::memcpy(m_buffer, list.begin(), sizeof(T) * list.size());
         else
             for (size_type i = 0; i < list.size(); ++i)
@@ -1002,11 +1015,12 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::const_iterator vector<T, S>::fin
 
 template <typename T, typename S>
 JMAN_NO_DISCARD bool vector<T, S>::contains(const_reference value) const
+    noexcept(noexcept(std::declval<T>() == std::declval<T>()))
 {
     if (empty()) return false;
-
+    
     for (size_type i = 0; i < m_size; ++i)
-        if (m_buffer[i] == value) return true;
+            if (m_buffer[i] == value) return true;
 
     return false;
 }
@@ -1022,14 +1036,14 @@ void vector<T, S>::reserve(size_type count)
 
     T* reserved = m_alloc(count);
 
-    if (std::is_trivially_copyable_v<T>)
+    if (m_is_trivial_type)
         std::memcpy(reserved, m_buffer, sizeof(T) * m_size);
     else 
     {
         size_type constructed = 0;
     
         auto guard = jman::scope_guard{[&](){
-            if constexpr (m_NEEDS_ROLLBACK_ON_CONSTRUCT) {
+            if constexpr (m_needs_rollback_on_construct) {
                 jman::destruct_at(reserved, constructed);
                 m_dealloc(reserved);
             }
@@ -1095,7 +1109,7 @@ void vector<T, S>::resize(size_type newSize)
     
         auto guard = jman::scope_guard{[&](){
             if constexpr (
-                m_NEEDS_ROLLBACK_ON_CONSTRUCT &&
+                m_needs_rollback_on_construct &&
                 !std::is_nothrow_default_constructible_v<T>
             ) {
                 jman::destruct_at(constructed, ptr);
@@ -1103,7 +1117,7 @@ void vector<T, S>::resize(size_type newSize)
             }
         }};
 
-        if (std::is_trivially_copyable_v<T>) {
+        if (m_is_trivial_type) {
             std::memcpy(ptr, m_buffer, sizeof(T) * m_size);
             constructed = m_size;
         } else
@@ -1140,14 +1154,14 @@ void vector<T, S>::resize(size_type newSize)
 
         T* ptr = m_alloc(newSize);
 
-        if (std::is_trivially_copyable_v<T>)
+        if (m_is_trivial_type)
             std::memcpy(ptr, m_buffer, sizeof(T) * newSize);
         else
         {
             size_type constructed = 0;
 
             auto guard = jman::scope_guard{[&](){
-                if constexpr (m_NEEDS_ROLLBACK_ON_CONSTRUCT) {
+                if constexpr (m_needs_rollback_on_construct) {
                     jman::destruct_at(ptr, constructed);
                     m_dealloc(ptr);
                 }
@@ -1181,7 +1195,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
     
         auto guard = jman::scope_guard{[&](){
             if constexpr (
-                m_NEEDS_ROLLBACK_ON_CONSTRUCT &&
+                m_needs_rollback_on_construct &&
                 !std::is_nothrow_default_constructible_v<T>
             ) {
                 jman::destruct_at(constructed, ptr);
@@ -1189,7 +1203,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
             }
         }};
 
-        if (std::is_trivially_copyable_v<T>) {
+        if (m_is_trivial_type) {
             std::memcpy(ptr, m_buffer, sizeof(T) * m_size);
             constructed = m_size;
         } else
@@ -1226,14 +1240,14 @@ void vector<T, S>::resize(S newSize, const_reference value)
 
         T* ptr = m_alloc(newSize);
 
-        if (std::is_trivially_copyable_v<T>)
+        if (m_is_trivial_type)
             std::memcpy(ptr, m_buffer, sizeof(T) * newSize);
         else
         {
             size_type constructed = 0;
 
             auto guard = jman::scope_guard{[&](){
-                if constexpr (m_NEEDS_ROLLBACK_ON_CONSTRUCT) {
+                if constexpr (m_needs_rollback_on_construct) {
                     jman::destruct_at(ptr, constructed);
                     m_dealloc(ptr);
                 }
@@ -1290,7 +1304,8 @@ void vector<T, S>::swap(vector& other) noexcept
 
 template <typename T, typename S>
 template <std::predicate<T> Predicate>
-JMAN_NO_DISCARD vector<T, S>::iterator vector<T, S>::find_first_if(Predicate pred)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::iterator vector<T, S>::find_first_if(Predicate pred)
+    noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
 {
     for (size_type i = 0; i < m_size; ++i)
         if (pred(m_buffer[i])) return iterator{m_buffer + i};
@@ -1299,7 +1314,8 @@ JMAN_NO_DISCARD vector<T, S>::iterator vector<T, S>::find_first_if(Predicate pre
 
 template <typename T, typename S>
 template <std::predicate<T> Predicate>
-JMAN_NO_DISCARD vector<T, S>::const_iterator vector<T, S>::find_first_if(Predicate pred) const
+JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::const_iterator vector<T, S>::find_first_if(Predicate pred) const
+    noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
 {
     for (size_type i = 0; i < m_size; ++i)
         if (pred(m_buffer[i])) return const_iterator{m_buffer + i};
@@ -1309,7 +1325,8 @@ JMAN_NO_DISCARD vector<T, S>::const_iterator vector<T, S>::find_first_if(Predica
 
 
 template <typename T, typename S>
-JMAN_NO_DISCARD vector<T, S>::iterator vector<T, S>::find_first(const_reference value)
+JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::iterator vector<T, S>::find_first(const_reference value)
+    noexcept(noexcept(std::declval<T>() == std::declval<T>()))
 {
     for (size_type i = 0; i < m_size; ++i)
         if (m_buffer[i] == value) return iterator{m_buffer + i};
@@ -1317,7 +1334,8 @@ JMAN_NO_DISCARD vector<T, S>::iterator vector<T, S>::find_first(const_reference 
 }
 
 template <typename T, typename S>
-JMAN_NO_DISCARD vector<T, S>::const_iterator vector<T, S>::find_first(const_reference value) const
+JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::const_iterator vector<T, S>::find_first(const_reference value) const
+    noexcept(noexcept(std::declval<T>() == std::declval<T>()))
 {
     for (size_type i = 0; i < m_size; ++i)
         if (m_buffer[i] == value) return const_iterator{m_buffer + i};
@@ -1331,6 +1349,7 @@ JMAN_NO_DISCARD vector<T, S>::const_iterator vector<T, S>::find_first(const_refe
 template <typename T, typename S>
 template <std::predicate<T> Predicate>
 void vector<T, S>::remove_if(Predicate pred)
+    noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
 {
     if (empty()) return;
 
@@ -1340,7 +1359,7 @@ void vector<T, S>::remove_if(Predicate pred)
     auto original_end = end(); 
 
     for (auto i = dest; i != end(); ++i) {
-        // if *i on the predicate, move it to the next valid index
+        // if *i should stay, move it to the next valid index
         if (!pred(*i))
             *dest++ = std::move_if_noexcept(*i); 
     }
@@ -1352,6 +1371,7 @@ void vector<T, S>::remove_if(Predicate pred)
 
 template <typename T, typename S>
 void vector<T, S>::remove(const_reference value)
+    noexcept(!m_needs_rollback_on_assign && noexcept(std::declval<T>() == std::declval<T>()))
 {
     if (empty()) return;
 
@@ -1374,6 +1394,7 @@ void vector<T, S>::remove(const_reference value)
 
 template <typename T, typename S>
 void vector<T, S>::reverse()
+    noexcept(std::is_nothrow_swappable_v<T>)
 {
     if (empty()) return;
 
@@ -1403,6 +1424,7 @@ void vector<T, S>::reverse()
 
 template <typename T, typename S>
 vector<T, S>::size_type vector<T, S>::unique()
+    noexcept(!m_needs_rollback_on_assign && noexcept(std::declval<T>() == std::declval<T>()))
 {
     if (empty()) return 0;
 
@@ -1427,6 +1449,7 @@ vector<T, S>::size_type vector<T, S>::unique()
 template <typename T, typename S>
 template <std::predicate<T, T> Predicate> 
 vector<T, S>::size_type vector<T, S>::unique(Predicate pred)
+    noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
 {
     if (empty()) return 0;
 
@@ -1454,6 +1477,7 @@ vector<T, S>::size_type vector<T, S>::unique(Predicate pred)
 template <typename T, typename S>
 template <std::predicate<T> Predicate> 
 void vector<T, S>::retain(Predicate pred)
+    noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
 {
     if (empty()) return;
 
@@ -1523,15 +1547,15 @@ void vector<T, S>::insert(size_type index, TT&& value)
 
         auto guard = jman::scope_guard{[&](){
             if constexpr (
-                m_NEEDS_ROLLBACK_ON_ASSIGN ||
-                m_NEEDS_ROLLBACK_ON_CONSTRUCT
+                m_needs_rollback_on_assign ||
+                m_needs_rollback_on_construct
             ){
                 jman::destruct_at(constructed, newBuffer);
                 m_dealloc(newBuffer);
             }
         }};
 
-        if (std::is_trivially_copyable_v<T>) {
+        if (m_is_trivial_type) {
             // copy the elements before the insertion point
             std::memcpy(newBuffer, m_buffer, sizeof(T) * index);
             // copy the elements past the insertion point
@@ -1593,14 +1617,14 @@ void vector<T, S>::insert(size_type index, size_type count, const_reference valu
 
         auto guard = jman::scope_guard{[&](){
             if constexpr (
-                m_NEEDS_ROLLBACK_ON_ASSIGN ||
-                m_NEEDS_ROLLBACK_ON_CONSTRUCT
+                m_needs_rollback_on_assign ||
+                m_needs_rollback_on_construct
             ){
                 jman::destruct_at(constructed, newBuffer);
                 m_dealloc(newBuffer);
             }
         }};
-        if (std::is_trivially_copyable_v<T>) {
+        if (m_is_trivial_type) {
             // copy the elements before the insertion point
             std::memcpy(newBuffer, m_buffer, sizeof(T) * index);
             // copy the elements past the insertion point
