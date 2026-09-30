@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cstddef>
 #include <justaman/utils/attributes.h>
 #include <justaman/errors/excepted.hpp>
-#include <charconv>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <variant>
 #include <cstdint>
@@ -53,7 +54,7 @@ namespace jman
             inline expected<std::string_view, dotenv_error>     get_view(std::string_view key) const;
 
             JMAN_FORCE_INLINE void                              unload() noexcept { m_envVars.clear(); }
-            bool                                                load(std::string_view  filepath);
+            bool                                                load(std::string_view filepath);
 
         private:
             using env_var_t = std::variant< // all supported types
@@ -84,90 +85,23 @@ namespace jman
     template <class Config>
     class dotenv_config
     {
-        dotenv m_manager {}; // env variables manager
-        Config m_holder {}; // config wrapper
+        static_assert(std::is_nothrow_destructible_v<Config>, "Config class type must be nothrow destructible for safety.");
+
+        public:
+            dotenv_config();
+
+            Config& operator*() noexcept;
+            Config* operator->() noexcept;
+        
+
+        private:
+            dotenv m_manager {}; // env variables manager
+            Config m_holder {}; // config wrapper
     };
 } // namespace jman
 
 namespace jman 
 {
-
-// #######################################################################################
-// ----------------------------------- PRIVATE METHODS ---------------------------------//
-// #######################################################################################
-
-inline std::string_view dotenv::m_trim(std::string_view str)
-{
-    auto start = str.find_first_not_of(" \t\n\r"); // get the index for the first real character that its not a space or tab (\t)
-    if (start == std::string_view::npos) return "";
-    auto end = str.find_last_not_of(" \t\n\r"); // get the index for the last real character that its not a space or tab (\t)
-    return str.substr(start, end - start + 1);
-}
-
-template <typename T>
-bool inline dotenv::m_try_parse_int(std::string_view str, T* value)
-{
-    if (str.empty()) return false;
-
-    int base = 10;
-    bool is_negative = false;
-
-    if (str.front() == '-') {
-        if constexpr (std::is_unsigned_v<T>) return false; // cannot be negative if its unsigned
-        is_negative = true;
-        str.remove_prefix(1);
-    } else if (str.front() == '+')
-        str.remove_prefix(1);
-
-    // binary prefix
-    if (str.size() > 2 && str[0] == '0' && (str[1] == 'b' || str[1] == 'B')) {
-        base = 2;
-        str.remove_prefix(2);
-    }
-    // hexadecimal prefix
-    else if (str.size() > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
-        base = 16;
-        str.remove_prefix(2);
-    }
-
-    auto end = str.end();
-    auto [ptr, err] = std::from_chars(str.data(), end, *value, base);
-    
-    if (err == std::errc{} && ptr == end) {
-        if (is_negative) *value = -(*value);
-        return true;
-    }
-    return false;
-}
-bool inline dotenv::m_try_parse_double(std::string_view str, double* value)
-{
-    if (str.empty()) return false;
-
-    auto end = str.end();
-    auto [ptr, err] = std::from_chars(str.data(), end, *value);
-
-    return err == std::errc{} && ptr == end;
-}
-inline dotenv::env_var_t dotenv::m_parse_string(std::string_view raw)
-{
-    // try int
-    int int_val;
-    if (m_try_parse_int(raw, &int_val))
-        return int_val;
-
-    // try std::size_t
-    std::size_t sizet_val;
-    if (m_try_parse_int(raw, &sizet_val))
-        return sizet_val;
-
-    // try double
-    double double_val;
-    if (m_try_parse_double(raw, &double_val))
-        return double_val;
-
-    // fallback to just the string
-    return std::string(raw);
-}
 
 // #######################################################################################
 // -------------------------------------- GETTERS --------------------------------------//
@@ -185,7 +119,7 @@ const T& dotenv::get(std::string_view key, const T& fallback) const
     static_assert(
         std::same_as<T, std::string> || 
         std::same_as<T, int> ||
-        std::same_as<T, float> ||
+        std::same_as<T, double> ||
         std::same_as<T, bool> ||
         std::same_as<T, std::size_t>
     );
@@ -193,12 +127,11 @@ const T& dotenv::get(std::string_view key, const T& fallback) const
     auto it = m_envVars.find(key);
     if (it == m_envVars.end()) 
         return fallback;
+
+    
     
     if (std::holds_alternative<T>(it->second))
         return std::get<T>(it->second);
-
-    // if (const char* env_fallback = std::getenv(key.data()))
-    //     return std::string(env_fallback);
     
     return fallback;
 }
@@ -223,7 +156,7 @@ expected<T, dotenv_error> dotenv::get(std::string_view key) const
     static_assert(
         std::same_as<T, std::string> || 
         std::same_as<T, int> ||
-        std::same_as<T, float> ||
+        std::same_as<T, double> ||
         std::same_as<T, bool> ||
         std::same_as<T, std::size_t>
     );
@@ -234,9 +167,6 @@ expected<T, dotenv_error> dotenv::get(std::string_view key) const
     
     if (std::holds_alternative<T>(it->second))
         return std::get<T>(it->second);
-
-    if (const char* env_fallback = std::getenv(key.data()))
-        return std::string(env_fallback);
     
     return jman::unexpected(dotenv_error::invalid_get_type);
 }
