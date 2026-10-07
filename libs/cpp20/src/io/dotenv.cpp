@@ -61,7 +61,7 @@ bool inline dotenv::m_try_parse_double(std::string_view str, double* value)
 
     return err == std::errc{} && ptr == end;
 }
-inline dotenv::env_var_t dotenv::m_parse_string(std::string_view raw)
+inline dotenv::var_t dotenv::m_parse_string(std::string_view raw)
 {
     // try int
     int int_val;
@@ -115,7 +115,7 @@ bool dotenv::load(std::string_view filepath)
         }
 
         if (!value.empty() && (value[0] == '"' || value[0] == '\'')) 
-        // value is a string "" or ' characters found
+        // value is a string with "" or '' characters found
         {
             value = value.substr(1, value.size() - 2);
             m_envVars[std::string(key)] = std::string(value);
@@ -126,8 +126,8 @@ bool dotenv::load(std::string_view filepath)
             m_envVars[std::string(key)] = true;
         } else if (value == "off" || value == "low" || value == "false" ||
             value == "OFF" || value == "LOW" || value == "FALSE") 
-            // value is a boolean with false
-            {
+        // value is a boolean with false
+        {
             m_envVars[std::string(key)] = false;
         } else 
         // value is of type string, int, float or size_t

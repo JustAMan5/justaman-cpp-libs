@@ -1,11 +1,11 @@
 #pragma once
 
-#include <cmath>
+#include <justaman/utils/attributes.h>
+#include <justaman/containers/vector.hpp> // forced for merge sort for the temp buffer
+#include <bit>
 #include <cstdint>
 #include <iterator>
 #include <type_traits>
-#include <justaman/containers/vector.hpp> // forced for merge sort for the temp buffer
-#include <justaman/utils/attributes.h>
 
 namespace jman 
 {
@@ -477,16 +477,16 @@ constexpr void ssort(Iterator start, Iterator end, Compare comp)
 
         std::size_t min_idx = i;
 
-        // Iterate through the unsorted portion
+        // iterate through the unsorted portion
         // to find the actual minimum
         for (int j = i + 1; j < length; ++j)
             if (comp(start[j], start[min_idx])) {
 
-                // Update min_idx if a smaller element is found
+                // update min_idx if a smaller element is found
                 min_idx = j; 
             }
 
-        // Move minimum element to its correct position
+        // move minimum element to its correct position
         std::swap(start[i], start[min_idx]);
     }
 }
@@ -510,7 +510,7 @@ constexpr void sort(Iterator start, Iterator end, Compare comp)
     std::size_t length = end - start;
     if (length <= 1) return;
 
-    std::size_t depthLimit = 2 * std::log2(length);
+    std::size_t depthLimit = 2 * std::bit_width(length);
 
     detail::intro_sort_task stack[128];
     int top = -1;

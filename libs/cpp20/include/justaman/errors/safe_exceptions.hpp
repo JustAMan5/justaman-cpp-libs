@@ -16,11 +16,11 @@
 
 #else
 
-#   include <exception>
+#   include  <exception>
     // force direct program termination when any exception is thrown
 #   define JMAN_THROW(exception) std::terminate()
-#   define JMAN_TRY if (true)
-#   define JMAN_CATCH(x) if (false)
+#   define JMAN_TRY if constexpr (true)
+#   define JMAN_CATCH(x) if constexpr (false)
 #   define JMAN_RETHROW
 
 #endif

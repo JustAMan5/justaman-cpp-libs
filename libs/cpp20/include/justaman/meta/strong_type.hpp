@@ -26,13 +26,13 @@ namespace jman
 
             JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&          get() & noexcept { return m_value; }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&    get() const& noexcept { return m_value; } 
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&&         get() && noexcept { return m_value; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&&   get() const&& noexcept { return m_value; } 
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&&         get() && noexcept { return std::move(m_value); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&&   get() const&& noexcept { return std::move(m_value); } 
 
             JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&          operator*() & noexcept { return m_value; }
             JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&    operator*() const& noexcept { return m_value; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&&         operator*() && noexcept { return m_value; }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&&   operator*() const&& noexcept { return m_value; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T&&         operator*() && noexcept { return std::move(m_value); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr const T&&   operator*() const&& noexcept { return std::move(m_value); }
 
             const T*                                                operator->() const noexcept { return jman::addressof(m_value); }
             T*                                                      operator->() noexcept { return jman::addressof(m_value); }

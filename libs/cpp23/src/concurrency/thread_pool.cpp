@@ -64,7 +64,7 @@ struct thread_pool::impl
 void thread_pool::m_push(std::move_only_function<void(std::stop_token)>&& task, std::size_t priority)
 {
     if (m_impl->stop.load(std::memory_order_relaxed))
-        throw std::runtime_error("justaman::thread_pool::submit failed: submit() called after shutdown()");
+        JMAN_THROW(std::runtime_error("justaman::thread_pool::submit failed: submit() called after shutdown()"));
 
     std::lock_guard<std::mutex> lock(m_impl->mutex);
     m_impl->tasks.push(priority, std::move(task));
@@ -117,7 +117,7 @@ void thread_pool::shutdown() noexcept
 
 std::uint32_t thread_pool::workers() const noexcept 
 {
-    return m_impl->workers.size();
+    return static_cast<std::uint32_t>(m_impl->workers.size());
 }
 
 std::size_t thread_pool::pending() const noexcept 

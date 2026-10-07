@@ -18,6 +18,10 @@
 
 namespace jman
 {
+    /**
+        @brief 
+            for jman::priority_queue to tell the compiler to use the class with an external priority value
+    */
     struct use_external_priority_t {};
 
     /**
@@ -103,10 +107,10 @@ namespace jman
                 requires(is_keyed); // fix down
 
             void m_swim(size_type index) 
-                noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&>) 
+                noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&> && std::is_nothrow_swappable_v<T>) 
                 requires(!is_keyed); // fix up
             void m_sink(size_type index) 
-                noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&>)
+                noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&> && std::is_nothrow_swappable_v<T>)
                 requires(!is_keyed); // fix down
     };
 } // namespace jman
@@ -154,7 +158,7 @@ void priority_queue<T, PolicyOrComp>::m_sink(size_type index)
 
 template <typename T, typename PolicyOrComp>
 void priority_queue<T, PolicyOrComp>::m_swim(size_type index)
-    noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&>)
+    noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&> && std::is_nothrow_swappable_v<T>)
     requires(!is_keyed)
 {
     while (index > 0 && m_comp(m_data[(index - 1) / 2].value, m_data[index].value))
@@ -166,7 +170,7 @@ void priority_queue<T, PolicyOrComp>::m_swim(size_type index)
 }
 template <typename T, typename PolicyOrComp>
 void priority_queue<T, PolicyOrComp>::m_sink(size_type index) 
-    noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&>)
+    noexcept(std::is_nothrow_invocable_r_v<bool, PolicyOrComp, const T&, const T&> && std::is_nothrow_swappable_v<T>)
     requires(!is_keyed)
 {
     while (2 * index + 1 < m_data.size()) // if atleast left child exists

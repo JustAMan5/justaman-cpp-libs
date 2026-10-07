@@ -6,7 +6,11 @@
 namespace jman 
 {
 
-
+/**
+    @brief 
+        type_list, a compile time only list of types
+        ex. type_list<int, const char*, std::string, std::vector<int>>
+*/
 template <typename... T>
 struct type_list {};
 
@@ -16,6 +20,11 @@ struct type_list {};
 // ----------------------------------------- size
 // #############################################
 
+/**
+    @brief
+        grabs the size (count of elements) of the type list passed in compile time
+*/
+///@{
 template <typename TList>
 struct size;
 
@@ -27,13 +36,18 @@ struct size<type_list<T...>>
 
 template <typename TList>
 inline constexpr std::size_t size_v = size<TList>::value;
+///@}
 
 
 // #############################################
 // ----------------------------------------- at
 // ###########################################
 
-
+/**
+    @brief
+        grabs the type at the given index of the list in compile time
+*/
+///@{
 template <std::size_t Index, typename TList>
 struct at;
 
@@ -51,13 +65,18 @@ struct at<0, type_list<Head, Tail...>>
 
 template <std::size_t Index, typename TList>
 using at_t = typename at<Index, TList>::type;
+///@}
 
 
 // ###############################################
 // ------------------------------------- contains
 // #############################################
 
-
+/**
+    @brief
+        checks if a certain type exists in the list in compile time
+*/
+///@{
 template <typename T, typename TList>
 struct contains;
 
@@ -70,16 +89,22 @@ struct contains<T, type_list<>>
 template <typename T, typename ...Ts>
 struct contains<T, type_list<Ts...>> 
 {
-    static constexpr bool value = std::disjunction<std::is_same<T, Ts>...>::value;
+    static constexpr bool value = std::disjunction_v<std::is_same<T, Ts>...>;
 };
 
 template <typename T, typename TList>
 inline constexpr bool contains_v = contains<T, TList>::value;
+///@}
 
 // ###############################################
 // ---------------------------------------- index
 // #############################################
 
+/**
+    @brief
+        grabs the index of the type passed at compile time
+*/
+///@{
 template <typename T, typename TList>
 struct index;
 
@@ -97,13 +122,18 @@ struct index<T1, type_list<T2, Ts...>>
 
 template <typename T, typename TList>
 inline constexpr bool index_v = index<T, TList>::value;
+///@}
 
 
 // ###############################################
 // ---------------------------------------- front
 // #############################################
 
-
+/**
+    @brief
+        grabs the front type of the list in compile time
+*/
+///@{
 template <typename TList>
 struct front;
 
@@ -114,11 +144,17 @@ struct front<type_list<Head, Tail...>> {
 
 template <typename TList>
 using front_t = typename front<TList>::type;
+///@}
 
 // ###############################################
 // ----------------------------------------- back
 // #############################################
 
+/**
+    @brief
+        grabs the back type of the list in compile time
+*/
+///@{
 template <typename TList>
 struct back;
 
@@ -136,11 +172,17 @@ struct back<type_list<Head, Tail...>>
 
 template <typename TList>
 using back_t = typename back<TList>::type;
+///@}
 
 // ###############################################
 // --------------------------------------- append
 // #############################################
 
+/**
+    @brief
+        appends a type at the back of the list at compile time
+*/
+///@{
 template <typename T, typename TList>
 struct append;
 
@@ -152,11 +194,17 @@ struct append<V, type_list<Ts...>>
 
 template <typename T, typename TList>
 using append_t = typename append<T, TList>::type;
+///@}
 
 // ##############################################
 // ------------------------------------- prepend
 // #############################################
 
+/**
+    @brief
+        appends a type at the front of the list at compile time
+*/
+///@{
 template <typename TList, typename T>
 struct prepend;
 
@@ -167,27 +215,27 @@ struct prepend<type_list<Ts...>, T> {
 
 template <typename T, typename TList>
 using prepend_t = typename prepend<T, TList>::type;
+///@}
 
 // ###############################################
-// ------------------------------------- for_each
+// ------------------------------------- unpack
 // #############################################
 
-template <typename TList>
-struct for_each;
+/**
+    @brief
+        unpacks the types in the type list into the container passed
+*/
+///@{
+template <typename TList, template <typename...> class Container>
+struct unpack;
 
-template <typename ...Ts>
-struct for_each<type_list<Ts...>>
-{
-    template <typename Func>
-    requires (std::is_invocable_v<Func, Ts>, ...)
-    void operator()(Func&& func) const
-    {
-        (func(Ts{}), ...);
-    }
+template <template <typename...> class T, typename ...Ts>
+struct unpack<type_list<Ts...>, T> {
+    using type = T<Ts...>;
 };
 
-template <typename TList>
-inline constexpr for_each<TList> for_each_v = for_each<TList>{};
-
+template <typename TList, template <typename...> class Container>
+using unpack_t = typename unpack<TList, Container>::type;
+///@}
 
 } // namespace jman

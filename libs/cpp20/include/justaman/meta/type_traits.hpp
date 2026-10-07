@@ -12,10 +12,14 @@ namespace jman
     ///@{
     // the template <typename...> thing tells the compilers class T is a templated class that accepts a variadic types
     template <template <typename...> class T, typename U>
-    struct is_specialization_of: std::false_type {};
+    struct is_specialization_of {
+        static constexpr bool value = false;
+    };
 
     template <template <typename...> class T, typename ...Us>
-    struct is_specialization_of<T, T<Us...>>: std::true_type {};
+    struct is_specialization_of<T, T<Us...>> {
+        static constexpr bool value = true;
+    };
 
     template<template <typename...> class T, typename ...Us>
     inline constexpr bool is_specialization_of_v = is_specialization_of<T, Us...>();

@@ -1,6 +1,17 @@
 #pragma once
 
 #include <type_traits>
+
+namespace jman::lockfree::detail 
+{
+    template <class T>
+    class work_stealing_queue_stealer 
+    {
+
+    };
+} // namespace jman::lockfree::detail
+
+
 namespace jman::lockfree
 {
     /**
@@ -26,5 +37,32 @@ namespace jman::lockfree
             using const_reference       = const T&;
             using pointer               = T*;
             using const_pointer         = const T*;
+
+            using stealer               = detail::work_stealing_queue_stealer<T>;
+
+        work_stealing_queue();
+        ~work_stealing_queue() noexcept;
+
+        /** 
+            any copy or move could cause data races, 
+            im sure there r a lot of dirty little tricks 
+            but i dont want to shoot myself on the foot just for copy and move operations 
+            for a class that 99% of the time doesnt need these operations
+        */
+        ///@{
+        work_stealing_queue(const work_stealing_queue&) = delete;
+        work_stealing_queue& operator=(const work_stealing_queue&) = delete;
+
+        work_stealing_queue(work_stealing_queue&&) noexcept = delete; 
+        work_stealing_queue& operator=(work_stealing_queue&&) noexcept = delete; 
+        ///@}
+
+        void push();
+        void pop();
+        void steal();
+        void empty();
+        void size();
+        void thief(); // grabs a ref from the stealer/thief obj in the class
+
     };
-}
+} // namespace jman::detail

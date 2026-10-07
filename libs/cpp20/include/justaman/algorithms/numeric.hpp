@@ -61,11 +61,15 @@ constexpr bool validate_mul(const T& a, const T& b, T* result)
             return a <= std::numeric_limits<T>::max() / b;
         else
             if (a > 0) {
-                if (b > 0) return a <= std::numeric_limits<T>::max() / b;    // pos * pos
-                else return b >= std::numeric_limits<T>::min() / a;          // pos * neg
+                if (b > 0) 
+                    return a <= std::numeric_limits<T>::max() / b;    // pos * pos
+                else 
+                    return b >= std::numeric_limits<T>::min() / a;    // pos * neg
             } else {
-                if (b > 0) return a >= std::numeric_limits<T>::min() / b;    // neg * pos
-                else return b >= std::numeric_limits<T>::max() / a;          // neg * neg
+                if (b > 0) 
+                    return a >= std::numeric_limits<T>::min() / b;    // neg * pos
+                else 
+                    return b >= std::numeric_limits<T>::max() / a;    // neg * neg
             }
     #endif
 }

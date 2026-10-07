@@ -1,14 +1,13 @@
 #pragma once
 
-#include <cstddef>
 #include <justaman/utils/attributes.h>
-#include <justaman/errors/excepted.hpp>
+#include <justaman/meta/type_list.hpp>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <variant>
-#include <cstdint>
 
 namespace jman::detail 
 {
@@ -24,49 +23,70 @@ namespace jman::detail
             return std::hash<std::string>{}(str);
         }
     };
+
+    // grab any alternative variant that is convertible to T (ignores T), returns std::variant_npos when not found
+    template <typename T, typename Variant, std::size_t I = 0>
+    struct variant_find_convertible_alternative {
+        static constexpr std::size_t value = []() {
+            if constexpr (I < std::variant_size_v<Variant>) {
+                using Alt = std::variant_alternative_t<I, Variant>;
+
+                if constexpr (!std::same_as<T, Alt> && std::is_convertible_v<Alt, T>)
+                    return I;
+                else
+                    return variant_find_convertible_alternative<T, Variant, I + 1>::value;
+
+            } else
+                return std::variant_npos;
+        }();
+    };
 }
 
 namespace jman 
 {
-    enum class dotenv_error: std::uint8_t
-    {
-        invalid_key,
-        invalid_get_type,
-    };
-
     class dotenv 
     {
-        public:
-            dotenv() = default; // not loaded
-            explicit dotenv(std::string_view filepath) { load(filepath); }
-
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool              empty() const noexcept { return m_envVars.empty(); }
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t       size() const noexcept { return m_envVars.size(); }
-
-            JMAN_NO_DISCARD inline bool                         exists(std::string_view key) const noexcept;
-
-            template <typename T>
-            const T&                                            get(std::string_view key, const T& fallback) const;
-            inline std::string_view                             get_view(std::string_view key, std::string_view fallback) const;
-
-            template <typename T>
-            expected<T, dotenv_error>                           get(std::string_view key) const;
-            inline expected<std::string_view, dotenv_error>     get_view(std::string_view key) const;
-
-            JMAN_FORCE_INLINE void                              unload() noexcept { m_envVars.clear(); }
-            bool                                                load(std::string_view filepath);
-
         private:
-            using env_var_t = std::variant< // all supported types
+            template <typename T>
+            using return_type_t = std::conditional_t<std::is_trivially_copyable_v<T>, T, const T&>;
+
+        public:
+            // all supported types
+            using supported_types_t = type_list<
                 std::string, 
-                std::size_t, // for more complex numbs like encryption keys and that kind of stuff
-                int, // for stuff like ports ids
+                std::size_t,    // for more complex numbs like encryption keys and that kind of stuff
+                int,            // for stuff like ports ids
                 bool, 
                 double
             >;
+
+            using var_t = jman::unpack_t<supported_types_t, std::variant>;
+    
+            dotenv() = default; // not loaded
+            JMAN_NO_DISCARD static inline std::optional<dotenv>         parse(std::string_view filepath) noexcept;
+
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool                      empty() const noexcept { return m_envVars.empty(); }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t               size() const noexcept { return m_envVars.size(); }
+
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE bool                      exists(std::string_view key) const noexcept;
+
+            template <typename T>
+            requires jman::contains_v<T, supported_types_t>
+            JMAN_NO_DISCARD return_type_t<T>                            get_or(std::string_view key, const T& fallback) const;
+            JMAN_NO_DISCARD inline std::string_view                     get_view_or(std::string_view key, std::string_view fallback) const;
+
+            template <typename T>
+            requires jman::contains_v<T, supported_types_t>
+            JMAN_NO_DISCARD std::optional<T>                            get(std::string_view key) const;
+            JMAN_NO_DISCARD inline std::optional<std::string_view>      get_view(std::string_view key) const;
+
+            JMAN_FORCE_INLINE void                                      unload() noexcept { m_envVars.clear(); }
+            bool                                                        load(std::string_view filepath);
+
+        private:
             std::unordered_map<
                 std::string, 
-                env_var_t, 
+                var_t, 
                 detail::transparent_string_hash, 
                 std::equal_to<void>
             >  m_envVars; // with this custom hash and equal_to<void> we tell the compiler that for searching dont create a new std::string and 
@@ -74,27 +94,42 @@ namespace jman
         
         private:
             // removes spaces and tabs from the sides (not in between of the =)
-            static inline std::string_view      m_trim(std::string_view str);
+            static std::string_view      m_trim(std::string_view str);
 
             template <typename T>
-            static inline bool                  m_try_parse_int(std::string_view str, T* value);
-            static inline bool                  m_try_parse_double(std::string_view str, double* value);
-            static inline env_var_t             m_parse_string(std::string_view raw);
+            static bool                  m_try_parse_int(std::string_view str, T* value);
+            static bool                  m_try_parse_double(std::string_view str, double* value);
+            static var_t                 m_parse_string(std::string_view raw);
     };     
     
     template <class Config>
     class dotenv_config
     {
-        static_assert(std::is_nothrow_destructible_v<Config>, "Config class type must be nothrow destructible for safety.");
+        static_assert(std::is_nothrow_destructible_v<Config>, "Config type must be nothrow destructible for safety.");
+        static_assert(std::is_constructible_v<Config, const dotenv&>, "Config must be constructible from 'const dotenv&'.");
 
         public:
-            dotenv_config();
+            dotenv_config(std::string_view filepath)
+                : m_manager(dotenv::parse(filepath).value_or(dotenv{})), m_holder(m_manager) {}
+            
+            // prevebt ussyes if Config holds a ref to the manager internally
+            dotenv_config(const dotenv_config&) = delete;
+            dotenv_config& operator=(const dotenv_config&) = delete;
 
-            Config& operator*() noexcept;
-            Config* operator->() noexcept;
-        
+            dotenv_config(dotenv_config&&) noexcept = default;
+            dotenv_config& operator=(dotenv_config&&) noexcept = default;
+
+
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const Config& operator*() const noexcept  { return m_holder; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const Config* operator->() const noexcept { return &m_holder; }
+            
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE Config& operator*() noexcept  { return m_holder; }
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE Config* operator->() noexcept { return &m_holder; }
+
+            JMAN_NO_DISCARD JMAN_FORCE_INLINE const dotenv& raw_env() const noexcept { return m_manager; }
 
         private:
+            // must be on this order so m_manager initializes first and we avoid the compiler from fucking the code
             dotenv m_manager {}; // env variables manager
             Config m_holder {}; // config wrapper
     };
@@ -103,86 +138,76 @@ namespace jman
 namespace jman 
 {
 
+JMAN_NO_DISCARD inline std::optional<dotenv> dotenv::parse(std::string_view filepath) noexcept
+{
+    dotenv instance;
+    if (instance.load(filepath)) return instance;
+    return std::nullopt;
+}
+
 // #######################################################################################
 // -------------------------------------- GETTERS --------------------------------------//
 // #######################################################################################
 
-JMAN_NO_DISCARD inline bool dotenv::exists(std::string_view key) const noexcept
+JMAN_NO_DISCARD JMAN_FORCE_INLINE bool dotenv::exists(std::string_view key) const noexcept
 {
-    auto it = m_envVars.find(key);
-    return it != m_envVars.end();
+    return m_envVars.find(key) != m_envVars.end();
 }
 
 template <typename T>
-const T& dotenv::get(std::string_view key, const T& fallback) const
+requires jman::contains_v<T, dotenv::supported_types_t>
+dotenv::return_type_t<T> dotenv::get_or(std::string_view key, const T& fallback) const
 {
-    static_assert(
-        std::same_as<T, std::string> || 
-        std::same_as<T, int> ||
-        std::same_as<T, double> ||
-        std::same_as<T, bool> ||
-        std::same_as<T, std::size_t>
-    );
+    if (key.empty()) return fallback;
 
     auto it = m_envVars.find(key);
-    if (it == m_envVars.end()) 
-        return fallback;
-
-    
-    
-    if (std::holds_alternative<T>(it->second))
+    if (it != m_envVars.end() && std::holds_alternative<T>(it->second))
         return std::get<T>(it->second);
     
     return fallback;
 }
-inline std::string_view dotenv::get_view(std::string_view key, std::string_view fallback) const
+inline std::string_view dotenv::get_view_or(std::string_view key, std::string_view fallback) const
 {
+    if (key.empty()) return fallback;
+
     auto it = m_envVars.find(key);
     if (it == m_envVars.end()) 
         return fallback;
     
     if (std::holds_alternative<std::string>(it->second))
-        return std::get<std::string>(it->second);
-
-    if (const char* env_fallback = std::getenv(key.data()))
-        return std::string_view(env_fallback);
+        return std::string_view{std::get<std::string>(it->second)};
     
     return fallback;
 }
 
 template <typename T>
-expected<T, dotenv_error> dotenv::get(std::string_view key) const
+requires jman::contains_v<T, dotenv::supported_types_t>
+std::optional<T> dotenv::get(std::string_view key) const
 {
-    static_assert(
-        std::same_as<T, std::string> || 
-        std::same_as<T, int> ||
-        std::same_as<T, double> ||
-        std::same_as<T, bool> ||
-        std::same_as<T, std::size_t>
-    );
+    if (key.empty()) return std::nullopt;
 
     auto it = m_envVars.find(key);
     if (it == m_envVars.end()) 
-        return jman::unexpected(dotenv_error::invalid_key);
+        return std::nullopt;
+
     
     if (std::holds_alternative<T>(it->second))
         return std::get<T>(it->second);
     
-    return jman::unexpected(dotenv_error::invalid_get_type);
+    return std::nullopt;
 }
-inline expected<std::string_view, dotenv_error> dotenv::get_view(std::string_view key) const
+inline std::optional<std::string_view> dotenv::get_view(std::string_view key) const
 {
+    if (key.empty()) return std::nullopt;
+
     auto it = m_envVars.find(key);
     if (it == m_envVars.end()) 
-        return jman::unexpected(dotenv_error::invalid_key);
-    
-    if (std::holds_alternative<std::string>(it->second))
-        return std::get<std::string>(it->second);
+        return std::nullopt;
 
-    if (const char* env_fallback = std::getenv(key.data()))
-        return std::string_view(env_fallback);
-    
-    return jman::unexpected(dotenv_error::invalid_get_type);
+    if (std::holds_alternative<std::string>(it->second))
+        return std::string_view{std::get<std::string>(it->second)};
+        
+    return std::nullopt;
 }
 
 } // namespace jman

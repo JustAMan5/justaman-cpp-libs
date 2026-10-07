@@ -7,10 +7,12 @@
 #include <justaman/errors/safe_exceptions.hpp>
 #include <cstring>
 #include <iterator>
-#include <stdexcept>
 #include <utility>
 #include <type_traits>
 #include <span>
+#if defined(JMAN_HAS_EXCEPTIONS_ENABLED) && JMAN_HAS_EXCEPTIONS_ENABLED == 1
+#include <stdexcept>
+#endif
 
 namespace jman::detail {
     template <typename T>
@@ -126,7 +128,7 @@ namespace jman
             JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator                  find(size_type index) noexcept;
             JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator            find(size_type index) const noexcept;
 
-            JMAN_NO_DISCARD bool                                        contains(const_reference value) const noexcept(noexcept(std::declval<T>() == std::declval<T>()));
+            JMAN_NO_DISCARD bool                                        contains(const_reference value) const noexcept(m_is_nothrow_eq_v<T>);
 
             // ################################################
             // ------------------------------------- iterators
@@ -168,22 +170,22 @@ namespace jman
             // ##################################################
 
             template <std::predicate<T> Predicate>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          find_first_if(Predicate pred) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE iterator          find_first(const_reference) noexcept(noexcept(std::declval<T>() == std::declval<T>()));
+            JMAN_NO_DISCARD iterator                            find_first_if(Predicate pred) noexcept(m_is_nothrow_pred_v<Predicate, const T&>);
+            JMAN_NO_DISCARD iterator                            find_first(const_reference) noexcept(m_is_nothrow_eq_v<T>);
 
             template <std::predicate<T> Predicate>
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    find_first_if(Predicate pred) const noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
-            JMAN_NO_DISCARD JMAN_FORCE_INLINE const_iterator    find_first(const_reference) const noexcept(noexcept(std::declval<T>() == std::declval<T>()));
+            JMAN_NO_DISCARD const_iterator                      find_first_if(Predicate pred) const noexcept(m_is_nothrow_pred_v<Predicate, const T&>);
+            JMAN_NO_DISCARD const_iterator                      find_first(const_reference) const noexcept(m_is_nothrow_eq_v<T>);
 
             template <std::predicate<T> Predicate>
-            void                                                remove_if(Predicate pred) noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
-            void                                                remove(const_reference value) noexcept(!m_needs_rollback_on_assign && noexcept(std::declval<T>() == std::declval<T>()));
+            void                                                remove_if(Predicate pred) noexcept(!m_needs_rollback_on_assign && m_is_nothrow_pred_v<Predicate, const T&>);
+            void                                                remove(const_reference value) noexcept(!m_needs_rollback_on_assign && m_is_nothrow_ne_v<T>);
             void                                                reverse() noexcept(std::is_nothrow_swappable_v<T>);
-            size_type                                           unique() noexcept(!m_needs_rollback_on_assign && noexcept(std::declval<T>() == std::declval<T>()));
+            size_type                                           unique() noexcept(!m_needs_rollback_on_assign && m_is_nothrow_ne_v<T>);
             template <std::predicate<T, T> Predicate>
-            size_type                                           unique(Predicate pred) noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
+            size_type                                           unique(Predicate pred) noexcept(!m_needs_rollback_on_assign && m_is_nothrow_pred_v<Predicate, const T&>);
             template <std::predicate<T> Predicate>
-            void                                                retain(Predicate pred) noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>);
+            void                                                retain(Predicate pred) noexcept(!m_needs_rollback_on_assign && m_is_nothrow_pred_v<Predicate, const T&>);
 
             // ####################################################
             // -------------------------------- elements insertion
@@ -250,14 +252,15 @@ namespace jman
                     (!std::is_nothrow_move_assignable_v<T> && !std::is_nothrow_copy_assignable_v<T>);
 
                 constexpr static bool m_is_trivial_type =           std::is_trivially_copyable_v<T>;
-                constexpr static bool m_is_good_size =              sizeof(T) == 1 || sizeof(T) == 2 ||
-                                                                        sizeof(T) == 4 || sizeof(T) == 8 ||
-                                                                        sizeof(T) == 16;
-#if defined (JMAN_HARDWARE_SUPPORTS_SIMD)
-                constexpr static bool m_hardware_supports_simd =        true;
-#else
-                constexpr static bool m_hardware_supports_simd =        false;
-#endif
+
+                template <typename Pred, typename... Args>
+                constexpr static bool m_is_nothrow_pred_v =         std::is_nothrow_invocable_r_v<bool, Pred, Args...>;
+
+                template <typename U>
+                constexpr static bool m_is_nothrow_eq_v =           noexcept(std::declval<U>() == std::declval<U>());
+
+                template <typename U>
+                constexpr static bool m_is_nothrow_ne_v =           noexcept(std::declval<U>() != std::declval<U>());
 
             protected:
                 // shortcuts for calculating calculating capacities for when calling m_alloc()
@@ -1017,7 +1020,7 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::const_iterator vector<T, S>::fin
 
 template <typename T, typename S>
 JMAN_NO_DISCARD bool vector<T, S>::contains(const_reference value) const
-    noexcept(noexcept(std::declval<T>() == std::declval<T>()))
+    noexcept(m_is_nothrow_eq_v<T>)
 {
     if (empty()) return false;
 
@@ -1306,8 +1309,8 @@ void vector<T, S>::swap(vector& other) noexcept
 
 template <typename T, typename S>
 template <std::predicate<T> Predicate>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::iterator vector<T, S>::find_first_if(Predicate pred)
-    noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
+JMAN_NO_DISCARD vector<T, S>::iterator vector<T, S>::find_first_if(Predicate pred)
+    noexcept(m_is_nothrow_pred_v<Predicate, const T&>)
 {
     for (size_type i = 0; i < m_size; ++i)
         if (pred(m_buffer[i])) return iterator{m_buffer + i};
@@ -1316,8 +1319,8 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::iterator vector<T, S>::find_firs
 
 template <typename T, typename S>
 template <std::predicate<T> Predicate>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::const_iterator vector<T, S>::find_first_if(Predicate pred) const
-    noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
+JMAN_NO_DISCARD vector<T, S>::const_iterator vector<T, S>::find_first_if(Predicate pred) const
+    noexcept(m_is_nothrow_pred_v<Predicate, const T&>)
 {
     for (size_type i = 0; i < m_size; ++i)
         if (pred(m_buffer[i])) return const_iterator{m_buffer + i};
@@ -1327,8 +1330,8 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::const_iterator vector<T, S>::fin
 
 
 template <typename T, typename S>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::iterator vector<T, S>::find_first(const_reference value)
-    noexcept(noexcept(std::declval<T>() == std::declval<T>()))
+JMAN_NO_DISCARD vector<T, S>::iterator vector<T, S>::find_first(const_reference value)
+    noexcept(m_is_nothrow_eq_v<T>)
 {
     for (size_type i = 0; i < m_size; ++i)
         if (m_buffer[i] == value) return iterator{m_buffer + i};
@@ -1336,8 +1339,8 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::iterator vector<T, S>::find_firs
 }
 
 template <typename T, typename S>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::const_iterator vector<T, S>::find_first(const_reference value) const
-    noexcept(noexcept(std::declval<T>() == std::declval<T>()))
+JMAN_NO_DISCARD vector<T, S>::const_iterator vector<T, S>::find_first(const_reference value) const
+    noexcept(m_is_nothrow_eq_v<T>)
 {
     for (size_type i = 0; i < m_size; ++i)
         if (m_buffer[i] == value) return const_iterator{m_buffer + i};
@@ -1351,7 +1354,7 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE vector<T, S>::const_iterator vector<T, S>::fin
 template <typename T, typename S>
 template <std::predicate<T> Predicate>
 void vector<T, S>::remove_if(Predicate pred)
-    noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
+    noexcept(!m_needs_rollback_on_assign && m_is_nothrow_pred_v<Predicate, const T&>)
 {
     if (empty()) return;
 
@@ -1373,7 +1376,7 @@ void vector<T, S>::remove_if(Predicate pred)
 
 template <typename T, typename S>
 void vector<T, S>::remove(const_reference value)
-    noexcept(!m_needs_rollback_on_assign && noexcept(std::declval<T>() == std::declval<T>()))
+    noexcept(!m_needs_rollback_on_assign && m_is_nothrow_ne_v<T>)
 {
     if (empty()) return;
 
@@ -1426,7 +1429,7 @@ void vector<T, S>::reverse()
 
 template <typename T, typename S>
 vector<T, S>::size_type vector<T, S>::unique()
-    noexcept(!m_needs_rollback_on_assign && noexcept(std::declval<T>() == std::declval<T>()))
+    noexcept(!m_needs_rollback_on_assign && m_is_nothrow_ne_v<T>)
 {
     if (empty()) return 0;
 
@@ -1451,7 +1454,7 @@ vector<T, S>::size_type vector<T, S>::unique()
 template <typename T, typename S>
 template <std::predicate<T, T> Predicate>
 vector<T, S>::size_type vector<T, S>::unique(Predicate pred)
-    noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
+    noexcept(!m_needs_rollback_on_assign && m_is_nothrow_pred_v<Predicate, const T&>)
 {
     if (empty()) return 0;
 
@@ -1479,7 +1482,7 @@ vector<T, S>::size_type vector<T, S>::unique(Predicate pred)
 template <typename T, typename S>
 template <std::predicate<T> Predicate>
 void vector<T, S>::retain(Predicate pred)
-    noexcept(!m_needs_rollback_on_assign && std::is_nothrow_invocable_r_v<bool, Predicate, const T&>)
+    noexcept(!m_needs_rollback_on_assign && m_is_nothrow_pred_v<Predicate, const T&>)
 {
     if (empty()) return;
 
