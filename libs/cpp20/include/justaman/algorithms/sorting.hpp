@@ -8,6 +8,7 @@
 #include <bit>
 #include <iterator>
 #include <type_traits>
+#include <cstring>
 
 namespace jman 
 {
@@ -241,8 +242,7 @@ constexpr void msort_merge(
     using diff_t = typename std::iterator_traits<Iterator>::difference_type;
     diff_t i = 0;
 
-    // in here we r using <= because the code treats R1 and R2 as the last actual element and not the next position after the last
-    while (L1 <= R1 && L2 <= R2)
+    while (L1 < R1 && L2 < R2)
     {
         if (comp(*L1, *L2)) {
             jman::construct_at(temp + i, std::move_if_noexcept(*L1));
@@ -258,14 +258,14 @@ constexpr void msort_merge(
 
     // these two r in case there is any element left that we cant compare with another
 
-    while (L1 <= R1) 
+    while (L1 < R1) 
     {
         jman::construct_at(temp + i, std::move_if_noexcept(*L1));
         ++i;
         ++L1;
     }
 
-    while (L2 <= R2)
+    while (L2 < R2)
     {
         
         jman::construct_at(temp + i, std::move_if_noexcept(*L2));
@@ -365,33 +365,47 @@ constexpr void msort(Iterator start, Iterator end, Compare comp)
     T* tmp = static_cast<T*>(::operator new(result, std::align_val_t{alignof(T)}));
     jman::scope_guard tmp_guard {[tmp](){::operator delete(static_cast<void*>(tmp), std::align_val_t{alignof(T)});}};
 
-    diff_t len = 1;
-    while (len < length)
-    {
-        diff_t i = 0;
-        while (i < length)
-        {
-            diff_t L1 = i;
-            diff_t R1 = i + len - 1;
-            diff_t L2 = i + len;
-            diff_t R2 = i + 2 * len - 1;
+    std::size_t len = 1;
+    std::size_t u_length = static_cast<std::size_t>(length);
 
-            if (L2 >= length)
+    while (len < u_length)
+    {
+        std::size_t i = 0;
+        while (i < u_length)
+        {
+            std::size_t L1 = i;
+            std::size_t R1 = i + len;
+            std::size_t L2 = i + len;
+            std::size_t R2 = i + 2 * len;
+
+            if (L2 >= u_length)
                 break;
 
-            if (R2 >= length)
-                R2 = length - 1;
+            if (R2 >= u_length)
+                R2 = u_length;
 
-            detail::msort_merge(start + L1, start + R1, start + L2, start + R2, tmp, comp);
-            for (diff_t j = 0; j < R2 - L1 + 1; ++j) {
-                start[i + j] = std::move_if_noexcept(tmp[j]);
-                jman::destruct_at(tmp + j);
-            }
+            detail::msort_merge(
+                start + static_cast<diff_t>(L1),
+                start + static_cast<diff_t>(R1),
+                start + static_cast<diff_t>(L2), 
+                start + static_cast<diff_t>(R2),
+                tmp,
+                comp
+            );
+
+            std::size_t num_elements = R2 - L1;
+
+            if constexpr (std::is_trivially_copyable_v<T>)
+                std::memcpy(start + L1, tmp, sizeof(T) * num_elements);
+            else 
+                for (std::size_t j = 0; j < R2 - L1; ++j)
+                    start[i + j] = std::move_if_noexcept(tmp[j]);
+
+            jman::destruct_at(tmp, num_elements);
     
-            i += len << 1;
-
+            i += len << 1; // same as len * 2, the compiler will still use the shift even when doing len * 2 but this looks more aura farming
         }
-        len <<= 1; // same as len *= 2
+        len <<= 1; // copy the aura from above like a cool idiot that will get 100 different runtime errors for this ugly ass code
     }
 }
 

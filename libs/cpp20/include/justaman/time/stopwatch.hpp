@@ -125,7 +125,7 @@ JMAN_FORCE_INLINE bool stopwatch::expired(double seconds) const noexcept
 }
 JMAN_FORCE_INLINE float stopwatch::get_progress(double targetSeconds) const noexcept 
 {
-    return elapsed_seconds() / targetSeconds;
+    return static_cast<float>(elapsed_seconds() / targetSeconds);
 }
 JMAN_FORCE_INLINE double stopwatch::get_remaining_time(double targetSeconds) const noexcept
 {
