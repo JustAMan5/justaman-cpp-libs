@@ -23,23 +23,6 @@ namespace jman::detail
             return std::hash<std::string>{}(str);
         }
     };
-
-    // grab any alternative variant that is convertible to T (ignores T), returns std::variant_npos when not found
-    template <typename T, typename Variant, std::size_t I = 0>
-    struct variant_find_convertible_alternative {
-        static constexpr std::size_t value = []() {
-            if constexpr (I < std::variant_size_v<Variant>) {
-                using Alt = std::variant_alternative_t<I, Variant>;
-
-                if constexpr (!std::same_as<T, Alt> && std::is_convertible_v<Alt, T>)
-                    return I;
-                else
-                    return variant_find_convertible_alternative<T, Variant, I + 1>::value;
-
-            } else
-                return std::variant_npos;
-        }();
-    };
 }
 
 namespace jman 
@@ -54,8 +37,7 @@ namespace jman
             // all supported types
             using supported_types_t = type_list<
                 std::string, 
-                std::size_t,    // for more complex numbs like encryption keys and that kind of stuff
-                int,            // for stuff like ports ids
+                std::size_t,
                 bool, 
                 double
             >;

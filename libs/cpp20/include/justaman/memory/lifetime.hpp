@@ -5,7 +5,7 @@
 #include <type_traits>
 #include <utility>
 #if !(defined (__cpp_lib_constexpr_new) && __cpp_lib_constexpr_new >= 202406L)
-#   include <memory> // for std::construct_at fallback
+#include <memory> // for std::construct_at fallback
 #endif
 
 namespace jman 

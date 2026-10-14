@@ -63,11 +63,6 @@ bool inline dotenv::m_try_parse_double(std::string_view str, double* value)
 }
 inline dotenv::var_t dotenv::m_parse_string(std::string_view raw)
 {
-    // try int
-    int int_val;
-    if (m_try_parse_int<int>(raw, &int_val))
-        return int_val;
-
     // try std::size_t
     std::size_t sizet_val;
     if (m_try_parse_int<std::size_t>(raw, &sizet_val))

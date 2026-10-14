@@ -91,9 +91,9 @@ namespace jman
             expected(unexpected<G>&& e): m_has_value(false), m_unex(std::move(e.error())) {}
 
             template <class... Args> requires std::is_constructible_v<T, Args...>
-            expected( std::in_place_t, Args&&... args ): m_has_value(true), m_value(std::forward<Args>...) {}
+            expected( std::in_place_t, Args&&... args ): m_has_value(true), m_value(std::forward<Args>(args)...) {}
             template <class... Args> requires std::is_constructible_v<E, Args...>
-            expected( jman::unexpect_t, Args&&... args ): m_has_value(false), m_unex(std::forward<Args>...) {}
+            expected( jman::unexpect_t, Args&&... args ): m_has_value(false), m_unex(std::forward<Args>(args)...) {}
 
             ~expected() noexcept;
 
@@ -241,8 +241,8 @@ namespace jman
             JMAN_NO_DISCARD JMAN_FORCE_INLINE bool                  has_value() const noexcept      { return m_has_value;}
             
 
-            JMAN_FORCE_INLINE const void                            value() const& noexcept         { return void(); }
-            JMAN_FORCE_INLINE const void                            value() && noexcept             { return void(); }
+            JMAN_FORCE_INLINE void                                  value() const& noexcept         { return void(); }
+            JMAN_FORCE_INLINE void                                  value() && noexcept             { return void(); }
 
             JMAN_FORCE_INLINE const E&                              error() const& noexcept; 
             JMAN_FORCE_INLINE E&                                    error() & noexcept;

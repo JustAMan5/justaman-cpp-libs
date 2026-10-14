@@ -9,21 +9,51 @@
     },
     {
       "name": "debug",
+      "description": "default debug preset.",
       "inherits": "base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "JUSTAMAN_EXTRA_LOGGING": "ON",
+        "JUSTAMAN_EXTRA_WARNINGS": "ON"
       }
     },
     {
       "name": "release",
+      "description": "default release preset.",
       "inherits": "base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "JUSTAMAN_EXTRA_LOGGING": "OFF",
+        "JUSTAMAN_WARNINGS_AS_ERRORS": "OFF",
+        "JUSTAMAN_EXTRA_WARNINGS": "OFF"
+      }
+    },
+    {
+      "name": "minrelsize",
+      "description": "release but optimized for min size (-Os)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "MinRelSize",
+        "JUSTAMAN_EXTRA_LOGGING": "OFF",
+        "JUSTAMAN_WARNINGS_AS_ERRORS": "OFF",
+        "JUSTAMAN_EXTRA_WARNINGS": "OFF"
+      }
+    },
+    {
+      "name": "relwithdebinfo",
+      "description": "release speed but debug features on",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "JUSTAMAN_EXTRA_LOGGING": "ON",
+        "JUSTAMAN_EXTRA_WARNINGS": "ON"
       }
     }
   ],
   "buildPresets": [
-    { "name": "debug", "configurePreset": "debug" },
-    { "name": "release", "configurePreset": "release" }
+    { "name": "debug", "configurePreset": "debug"  },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "minrelsize", "configurePreset": "minrelsize" },
+    { "name": "relwithdebinfo", "configurePreset": "relwithdebinfo" }
   ]
 }

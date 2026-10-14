@@ -28,9 +28,6 @@ namespace jman
         @brief
             My custom implementation for a simpler version for std::vector.
             Tried to make it as accuarate as the standard version while giving more flexibility
-
-        @todo
-            add memcpy and memmove when types r trivially copyable and movable
     */
     template <typename T, typename S = std::size_t>
     class vector
@@ -240,6 +237,7 @@ namespace jman
             // ####################################################
 
             protected:
+                // something to take in mind is that when m_buffer is nullptr m_size and m_capacity will ALWAYS be 0
                 T*          m_buffer    {nullptr};
 
                 size_type   m_capacity  {0};
@@ -452,13 +450,15 @@ void vector<T, S>::m_shift_right(size_type index, size_type count)
     noexcept(!m_needs_rollback_on_construct && !m_needs_rollback_on_assign)
 {
     size_type elements_to_move = m_size - index;
-    if (elements_to_move == 0) return;
+    if (elements_to_move == 0) 
+        return;
 
     if constexpr (m_is_trivial_type)
         std::memmove(m_buffer + index + count, m_buffer + index, sizeof(T) * elements_to_move);
     else
     {
         size_type moved = 0;
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (
                 m_needs_rollback_on_assign ||
@@ -472,6 +472,7 @@ void vector<T, S>::m_shift_right(size_type index, size_type count)
                     if (current_idx >= m_size) jman::destruct_at(m_buffer + current_idx);
                 }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         for (size_type i = elements_to_move; i-- > 0;) {
             size_type src_idx = index + i;
@@ -481,11 +482,12 @@ void vector<T, S>::m_shift_right(size_type index, size_type count)
                 jman::construct_at(m_buffer + dst_idx, std::move_if_noexcept(m_buffer[src_idx]));
             else
                 m_buffer[dst_idx] = std::move_if_noexcept(m_buffer[src_idx]);
-
             ++moved;
         }
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
     }
 }
 template <typename T, typename S>
@@ -501,6 +503,7 @@ void vector<T, S>::m_shift_left(size_type index, size_type count)
     {
         size_type moved = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (m_needs_rollback_on_assign)
                 for (size_type i = moved; i-- > 0;) {
@@ -510,6 +513,7 @@ void vector<T, S>::m_shift_left(size_type index, size_type count)
                     m_buffer[original_idx] = std::move_if_noexcept(m_buffer[current_idx]);
                 }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         for (size_type i = 0; i < elements_to_move; ++i) {
             size_type src_idx = index + count + i;
@@ -519,7 +523,9 @@ void vector<T, S>::m_shift_left(size_type index, size_type count)
             ++moved;
         }
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
     }
 }
 
@@ -534,17 +540,19 @@ template <typename T, typename S>
 void vector<T, S>::m_grow(size_type increase)
 {
     size_type required = m_required_capacity(increase);
-    if (required <= m_capacity) return;
+    if (required <= m_capacity) 
+        return;
 
     size_type newCapacity = m_growth_capacity(required);
     T* ptr = m_alloc(newCapacity);
 
-    if constexpr (m_is_trivial_type)
-        std::memcpy(ptr, m_buffer, sizeof(T) * newCapacity);
-    else
-    {
+    if constexpr (m_is_trivial_type){
+        if (m_buffer)
+            std::memcpy(ptr, m_buffer, sizeof(T) * m_size);
+    } else {
         size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             // destroys the constructed and deallocated and acts like nothing happened
             if constexpr (m_needs_rollback_on_construct) {
@@ -552,18 +560,23 @@ void vector<T, S>::m_grow(size_type increase)
                 m_dealloc(ptr);
             }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         for (size_type i = 0; i < m_size; ++i) {
             jman::construct_at<T>(ptr + i, std::move_if_noexcept(m_buffer[i]));
             ++constructed;
         }
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         // discard the guard, nothing can throw past this point
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
     }
-    jman::destruct_at(m_buffer, m_size);
-
-    if (m_buffer) m_dealloc(m_buffer);
+    
+    if (m_buffer) {
+        jman::destruct_at(m_buffer, m_size);
+        m_dealloc(m_buffer);
+    }
 
     m_buffer = ptr;
     m_capacity = newCapacity;
@@ -577,8 +590,12 @@ template <typename T, typename S>
 template <bool Move>
 void vector<T, S>::m_insert_range(size_type index, T* src, size_type count)
 {
-    if (count == 0) return;
-    if (index > m_size) JMAN_THROW(std::out_of_range("jman::vector<T>::m_insert_range() failed: Index out of range."));
+    if (count == 0) 
+        return;
+
+    if (index > m_size) 
+        JMAN_THROW(std::out_of_range("jman::vector<T>::m_insert_range() failed: Index out of range."));
+
     size_type required = m_required_capacity(count);
 
     if (m_capacity >= required)
@@ -587,7 +604,6 @@ void vector<T, S>::m_insert_range(size_type index, T* src, size_type count)
         m_shift_right(index, count);
 
         for (size_type i = 0; i < count; ++i) {
-            jman::destruct_at(m_buffer + index + i);
             if constexpr (Move)
                 jman::construct_at<T>(m_buffer + index + i, std::move_if_noexcept(src[i]));
             else
@@ -598,11 +614,20 @@ void vector<T, S>::m_insert_range(size_type index, T* src, size_type count)
         // need to allocate a new block to fit the elements
     {
         size_type newCapacity = m_growth_capacity(required);
-        size_type constructed = 0;
-
         T* newBuffer = m_alloc(newCapacity);
 
-        auto guard = jman::scope_guard{[&](){
+        if constexpr (m_is_trivial_type) {
+            // copy the elements before the insertion point
+            std::memcpy(newBuffer, m_buffer, sizeof(T) * index);
+            // copy the elements past the insertion point
+            std::memcpy(newBuffer + index + count, m_buffer + index, sizeof(T) * (m_size - index));
+            // copy the elements of the range
+            std::memcpy(newBuffer + index, src, sizeof(T) * count);
+        } else {
+            size_type constructed = 0;
+
+#if JMAN_HAS_EXCEPTIONS_ENABLED
+            auto guard = jman::scope_guard{[&](){
                 if constexpr (
                     m_needs_rollback_on_assign || m_needs_rollback_on_construct
                 ){
@@ -610,14 +635,7 @@ void vector<T, S>::m_insert_range(size_type index, T* src, size_type count)
                     m_dealloc(newBuffer);
                 }
             }};
-
-        if constexpr (m_is_trivial_type) {
-            // copy the elements before the insertion point
-            std::memcpy(newBuffer, m_buffer, sizeof(T) * index);
-            // copy the elements past the insertion point
-            std::memcpy(newBuffer + index + count, m_buffer + index, sizeof(T) * (m_size - index));
-            constructed = m_size;
-        } else {
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
             // move/copy the elements before the insertion point
             for (size_type i = 0; i < index; ++i) {
@@ -636,22 +654,26 @@ void vector<T, S>::m_insert_range(size_type index, T* src, size_type count)
                     jman::construct_at<T>(newBuffer + i + count, m_buffer[i]);
                 ++constructed;
             }
+
+            // construct the element at the insertion point
+            for (size_type i = 0; i < count; ++i) {
+                if constexpr (Move)
+                    jman::construct_at<T>(newBuffer + index + i, std::move_if_noexcept(src[i]));
+                else
+                    jman::construct_at<T>(newBuffer + index + i, src[i]);
+                ++constructed;
+            }
+
+#if JMAN_HAS_EXCEPTIONS_ENABLED
+            // discard the guard, nothing past this line can throw
+            guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
         }
 
-        // construct the element at the insertion point
-        for (size_type i = 0; i < count; ++i) {
-            if constexpr (Move)
-                jman::construct_at<T>(newBuffer + index + i, std::move_if_noexcept(src[i]));
-            else
-                jman::construct_at<T>(newBuffer + index + i, src[i]);
-            ++constructed;
+        if (m_buffer) {
+            jman::destruct_at(m_buffer, m_size);
+            m_dealloc(m_buffer);
         }
-
-        // discard the guard, nothing past this line can throw
-        guard.dismiss();
-
-        jman::destruct_at(m_buffer, m_size);
-        if (m_buffer) m_dealloc(m_buffer);
 
         m_buffer = newBuffer;
         m_capacity = newCapacity;
@@ -673,10 +695,11 @@ vector<T, S>::vector(std::initializer_list<T> list)
     size_type newCapacity = jman::max(static_cast<size_type>(list.size()), MIN_CAPACITY);
     m_buffer = m_alloc(newCapacity);
 
-    if (m_is_trivial_type) {
+    if constexpr (m_is_trivial_type) {
         std::memcpy(m_buffer, list.begin(), list.size() * sizeof(T));
         m_size = list.size();
     } else {
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
                 jman::destruct_at(m_size, m_buffer);
@@ -686,12 +709,15 @@ vector<T, S>::vector(std::initializer_list<T> list)
                 m_size = 0;
             }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         for (const T& value: list) {
             jman::construct_at<T>(m_buffer + m_size, value);
             ++m_size;
         }
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         guard.dismiss();
+#endif
     }
 
     m_capacity = newCapacity;
@@ -705,6 +731,7 @@ vector<T, S>::vector(size_type size)
     size_type newCapacity = jman::max(static_cast<size_type>(size), MIN_CAPACITY);
     m_buffer = m_alloc(newCapacity);
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
     auto guard = jman::scope_guard{[&](){
         if constexpr (!std::is_nothrow_default_constructible_v<T>) {
             jman::destruct_at(m_size, m_buffer);
@@ -714,13 +741,16 @@ vector<T, S>::vector(size_type size)
             m_size = 0;
         }
     }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
     for (size_type i = 0; i < size; ++i) {
         jman::construct_at<T>(m_buffer + m_size);
         ++m_size;
     }
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
     guard.dismiss();
+#endif
     m_capacity = newCapacity;
 }
 
@@ -732,6 +762,7 @@ vector<T, S>::vector(size_type size, const T& value)
     size_type newCapacity = jman::max(static_cast<size_type>(size), MIN_CAPACITY);
     m_buffer = m_alloc(newCapacity);
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
     auto guard = jman::scope_guard{[&](){
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
             jman::destruct_at(m_size, m_buffer);
@@ -741,13 +772,16 @@ vector<T, S>::vector(size_type size, const T& value)
             m_size = 0;
         }
     }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
     for (size_type i = 0; i < size; ++i) {
         jman::construct_at<T>(m_buffer + i, value);
         ++m_size;
     }
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
     guard.dismiss();
+#endif
     m_capacity = newCapacity;
 }
 
@@ -762,10 +796,11 @@ vector<T, S>::vector(const vector& other)
     size_type newCapacity = other.m_capacity;
     m_buffer = m_alloc(newCapacity);
 
-    if (m_is_trivial_type) {
+    if constexpr (m_is_trivial_type) {
         std::memcpy(m_buffer, other.m_buffer, other.m_size * sizeof(T));
         m_size = other.m_size;
     } else {
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
                 jman::destruct_at(m_size, m_buffer);
@@ -775,12 +810,15 @@ vector<T, S>::vector(const vector& other)
                 m_size = 0;
             }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         for (size_type i = 0; i < other.m_size; ++i) {
             jman::construct_at<T>(m_buffer + i, other.m_buffer[i]);
             ++m_size;
         }
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
     }
 
     m_capacity = newCapacity;
@@ -789,8 +827,11 @@ vector<T, S>::vector(const vector& other)
 template <typename T, typename S>
 vector<T, S>& vector<T, S>::operator=(const vector& other)
 {
-    if (other.empty()) return *this;
     if (this == &other) return *this;
+    if (other.empty()) {
+        reset();
+        return *this;
+    }
 
     // if the buffer was allocated to fit the new vector's elements, just delete it and the old buffer remains intact
     // but if the buffer is reused, dont do anything and the buffer will remain in a mid/weird state
@@ -800,27 +841,33 @@ vector<T, S>& vector<T, S>::operator=(const vector& other)
     {
         T* buff = m_alloc(other.m_capacity);
 
-        if (m_is_trivial_type)
+        if constexpr (m_is_trivial_type)
             std::memcpy(buff, other.m_buffer, sizeof(T) * other.m_size);
         else {
             size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
             auto guard = jman::scope_guard{[&](){
                 if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
                     jman::destruct_at(constructed, buff);
                     m_dealloc(buff);
                 }
             }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED            
 
             for (size_type i = 0; i < other.m_size; ++i) {
                 jman::construct_at<T>(buff + i, other.m_buffer[i]);
                 ++constructed;
             }
+#if JMAN_HAS_EXCEPTIONS_ENABLED
             guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
         }
 
-        clear();
-        if (m_buffer) m_dealloc(m_buffer);
+        if (m_buffer) {
+            jman::destruct_at(m_buffer, m_size);
+            m_dealloc(m_buffer);
+        }
 
         m_buffer = buff;
         m_capacity = other.m_capacity;
@@ -828,15 +875,84 @@ vector<T, S>& vector<T, S>::operator=(const vector& other)
     } else
         // safely reuse the current block
     {
-        if (m_is_trivial_type)
+        if constexpr (m_is_trivial_type)
             std::memcpy(m_buffer, other.m_buffer, sizeof(T) * other.m_size);
         else
             for (size_type i = 0; i < other.m_size; ++i)
                 m_buffer[i] = other.m_buffer[i];
 
-        jman::destruct_at(m_buffer + other.m_size, m_capacity - other.m_size);
-
         m_size = other.m_size;
+        jman::destruct_at(m_buffer + m_size, m_capacity - m_size);
+    }
+
+    return *this;
+}
+
+template <typename T, typename S>
+vector<T, S>& vector<T, S>::operator=(std::initializer_list<T> list)
+{
+    if (list.size() == 0) {
+        reset();
+        return *this;
+    }
+
+    // if the buffer was allocated to fit the new vector's elements, just delete it and the old buffer remains intact
+    // but if the buffer is reused, dont do anything and the buffer will remain in a mid/weird state
+
+    size_type newCapacity = jman::max(static_cast<size_type>(list.size()), MIN_CAPACITY);
+
+    if (m_capacity < newCapacity)
+        // allocate a new block since the current vector cant hold the other vector
+    {
+        T* buff = m_alloc(newCapacity);
+
+        if constexpr (m_is_trivial_type)
+            std::memcpy(buff, list.begin(), sizeof(T) * list.size());
+        else {
+            size_type constructed = 0;
+
+#if JMAN_HAS_EXCEPTIONS_ENABLED
+            auto guard = jman::scope_guard{[&](){
+                if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
+                    jman::destruct_at(constructed, buff);
+                    m_dealloc(buff);
+                }
+            }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
+
+            for (const T& value: list) {
+                jman::construct_at<T>(buff + constructed, value);
+                ++constructed;
+            }
+#if JMAN_HAS_EXCEPTIONS_ENABLED
+            guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
+        }
+
+
+        if (m_buffer) {
+            jman::destruct_at(m_buffer, m_size);
+            m_dealloc(m_buffer);
+        }
+
+        m_buffer = buff;
+        m_capacity = newCapacity;
+        m_size = list.size();
+    } else
+        // safely reuse the current block
+    {
+        if constexpr (m_is_trivial_type)
+            std::memcpy(m_buffer, list.begin(), sizeof(T) * list.size());
+        else {
+            size_type i = 0;
+            for (const T& value: list) {
+                m_buffer[i] = value;
+                ++i;
+            }
+        }
+
+        m_size = list.size();
+        jman::destruct_at(m_buffer + m_size, m_capacity - m_size);
     }
 
     return *this;
@@ -875,66 +991,6 @@ vector<T, S>& vector<T, S>::operator=(vector&& other) noexcept
 
     return *this;
 }
-
-template <typename T, typename S>
-vector<T, S>& vector<T, S>::operator=(std::initializer_list<T> list)
-{
-    if (list.size() == 0) return *this;
-
-    // if the buffer was allocated to fit the new vector's elements, just delete it and the old buffer remains intact
-    // but if the buffer is reused, dont do anything and the buffer will remain in a mid/weird state
-
-    size_type newCapacity = jman::max(static_cast<size_type>(list.size()), MIN_CAPACITY);
-
-    if (m_capacity < newCapacity)
-        // allocate a new block since the current vector cant hold the other vector
-    {
-        T* buff = m_alloc(newCapacity);
-
-        if (m_is_trivial_type)
-            std::memcpy(buff, list.begin(), sizeof(T) * list.size());
-        else {
-            size_type constructed = 0;
-
-            auto guard = jman::scope_guard{[&](){
-                if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-                    jman::destruct_at(constructed, buff);
-                    m_dealloc(buff);
-                }
-            }};
-
-
-            for (size_type i = 0; i < list.size(); ++i) {
-                jman::construct_at<T>(buff + i, list[i]);
-                ++constructed;
-            }
-            guard.dismiss();
-        }
-
-
-        clear();
-        if (m_buffer) m_dealloc(m_buffer);
-
-        m_buffer = buff;
-        m_capacity = newCapacity;
-        m_size = list.size();
-    } else
-        // safely reuse the current block
-    {
-        if (m_is_trivial_type)
-            std::memcpy(m_buffer, list.begin(), sizeof(T) * list.size());
-        else
-            for (size_type i = 0; i < list.size(); ++i)
-                m_buffer[i] = list[i];
-
-        jman::destruct_at(m_buffer + list.size(), m_capacity - list.size());
-
-        m_size = list.size();
-    }
-
-    return *this;
-}
-
 
 // ---------------------------------------------- destructor
 
@@ -1025,7 +1081,7 @@ JMAN_NO_DISCARD bool vector<T, S>::contains(const_reference value) const
     if (empty()) return false;
 
     for (size_type i = 0; i < m_size; ++i)
-            if (m_buffer[i] == value) return true;
+        if (m_buffer[i] == value) return true;
 
     return false;
 }
@@ -1041,29 +1097,35 @@ void vector<T, S>::reserve(size_type count)
 
     T* reserved = m_alloc(count);
 
-    if (m_is_trivial_type)
+    if constexpr (m_is_trivial_type)
         std::memcpy(reserved, m_buffer, sizeof(T) * m_size);
     else
     {
         size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (m_needs_rollback_on_construct) {
                 jman::destruct_at(reserved, constructed);
                 m_dealloc(reserved);
             }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         for (size_type i = 0; i < m_size; ++i) {
             jman::construct_at<T>(reserved + i, std::move_if_noexcept(m_buffer[i]));
             ++constructed;
         }
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
     }
 
-    jman::destruct_at(m_buffer, m_size);
-    if (m_buffer) m_dealloc(m_buffer);
+    if (m_buffer) {
+        jman::destruct_at(m_buffer, m_size);    
+        m_dealloc(m_buffer);
+    }
 
     m_buffer = reserved;
     m_capacity = count;
@@ -1093,10 +1155,15 @@ void vector<T, S>::clear() noexcept
 template <typename T, typename S>
 void vector<T, S>::reset() noexcept
 {
-    clear();
-    if (m_buffer) m_dealloc(m_buffer);
+    if (!m_buffer) 
+        return;
+
+    jman::destruct_at(m_buffer, m_size);
+    m_dealloc(m_buffer);
+
     m_buffer = nullptr;
     m_capacity = 0;
+    m_size = 0;
 }
 
 
@@ -1112,6 +1179,7 @@ void vector<T, S>::resize(size_type newSize)
         T* ptr = m_alloc(newSize);
         size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (
                 m_needs_rollback_on_construct &&
@@ -1121,8 +1189,9 @@ void vector<T, S>::resize(size_type newSize)
                 m_dealloc(ptr);
             }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
-        if (m_is_trivial_type) {
+        if constexpr (m_is_trivial_type) {
             std::memcpy(ptr, m_buffer, sizeof(T) * m_size);
             constructed = m_size;
         } else
@@ -1136,10 +1205,14 @@ void vector<T, S>::resize(size_type newSize)
             ++constructed;
         }
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
-        jman::destruct_at(m_buffer, m_size);
-        if (m_buffer) m_dealloc(m_buffer);
+        if (m_buffer) { 
+            jman::destruct_at(m_buffer, m_size); 
+            m_dealloc(m_buffer); 
+        }
 
         m_buffer = ptr;
         m_size = m_capacity = newSize;
@@ -1151,7 +1224,7 @@ void vector<T, S>::resize(size_type newSize)
         m_size = newSize;
 
         if (newSize == 0) {
-            if (m_buffer) m_dealloc(m_buffer);
+            m_dealloc(m_buffer);
             m_buffer = nullptr;
             m_capacity = 0;
             return;
@@ -1159,30 +1232,34 @@ void vector<T, S>::resize(size_type newSize)
 
         T* ptr = m_alloc(newSize);
 
-        if (m_is_trivial_type)
+        if constexpr (m_is_trivial_type)
             std::memcpy(ptr, m_buffer, sizeof(T) * newSize);
         else
         {
             size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
             auto guard = jman::scope_guard{[&](){
                 if constexpr (m_needs_rollback_on_construct) {
                     jman::destruct_at(ptr, constructed);
                     m_dealloc(ptr);
                 }
             }};
+#endif
 
             for (size_type i = 0; i < newSize; ++i) {
                 jman::construct_at<T>(ptr + i, std::move_if_noexcept(m_buffer[i]));
                 ++constructed;
             }
-
+#if JMAN_HAS_EXCEPTIONS_ENABLED
             guard.dismiss();
+#endif
         }
 
-        jman::destruct_at(m_buffer, m_size);
-
-        if (m_buffer) m_dealloc(m_buffer);
+        if (m_buffer) { 
+            jman::destruct_at(m_buffer, m_size); 
+            m_dealloc(m_buffer); 
+        }
 
         m_buffer = ptr;
         m_capacity = newSize;
@@ -1198,6 +1275,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
         T* ptr = m_alloc(newSize);
         size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (
                 m_needs_rollback_on_construct &&
@@ -1207,8 +1285,9 @@ void vector<T, S>::resize(S newSize, const_reference value)
                 m_dealloc(ptr);
             }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
-        if (m_is_trivial_type) {
+        if constexpr (m_is_trivial_type) {
             std::memcpy(ptr, m_buffer, sizeof(T) * m_size);
             constructed = m_size;
         } else
@@ -1221,11 +1300,14 @@ void vector<T, S>::resize(S newSize, const_reference value)
             jman::construct_at<T>(ptr + i, value);
             ++constructed;
         }
-
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
-        jman::destruct_at(m_buffer, m_size);
-        if (m_buffer) m_dealloc(m_buffer);
+        if (m_buffer) { 
+            jman::destruct_at(m_buffer, m_size); 
+            m_dealloc(m_buffer); 
+        }
 
         m_buffer = ptr;
         m_size = m_capacity = newSize;
@@ -1245,30 +1327,34 @@ void vector<T, S>::resize(S newSize, const_reference value)
 
         T* ptr = m_alloc(newSize);
 
-        if (m_is_trivial_type)
+        if constexpr (m_is_trivial_type)
             std::memcpy(ptr, m_buffer, sizeof(T) * newSize);
         else
         {
             size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
             auto guard = jman::scope_guard{[&](){
                 if constexpr (m_needs_rollback_on_construct) {
                     jman::destruct_at(ptr, constructed);
                     m_dealloc(ptr);
                 }
             }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
             for (size_type i = 0; i < newSize; ++i) {
                 jman::construct_at<T>(ptr + i, std::move_if_noexcept(m_buffer[i]));
                 ++constructed;
             }
-
+#if JMAN_HAS_EXCEPTIONS_ENABLED
             guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
         }
 
-        jman::destruct_at(m_buffer, m_size);
-
-        if (m_buffer) m_dealloc(m_buffer);
+        if (m_buffer) { 
+            jman::destruct_at(m_buffer, m_size); 
+            m_dealloc(m_buffer); 
+        }
 
         m_buffer = ptr;
         m_capacity = newSize;
@@ -1407,6 +1493,7 @@ void vector<T, S>::reverse()
     T* r = m_buffer + m_size - 1;
     size_type moved = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
     auto guard = jman::scope_guard{[&](){
         if constexpr (!std::is_nothrow_swappable_v<T>) {
             while (moved > 0) {
@@ -1417,6 +1504,7 @@ void vector<T, S>::reverse()
             }
         }
     }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
     while (l < r) {
         std::swap(*l, *r);
@@ -1539,7 +1627,6 @@ void vector<T, S>::insert(size_type index, TT&& value)
     {
         m_shift_right(index, 1);
 
-        jman::destruct_at(m_buffer + index);
         jman::construct_at<T>(m_buffer + index, static_cast<T>(std::forward<TT>(value)));
         ++m_size;
     } else
@@ -1550,6 +1637,7 @@ void vector<T, S>::insert(size_type index, TT&& value)
         T* newBuffer = m_alloc(newCapacity);
         size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (
                 m_needs_rollback_on_assign ||
@@ -1559,8 +1647,9 @@ void vector<T, S>::insert(size_type index, TT&& value)
                 m_dealloc(newBuffer);
             }
         }};
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
-        if (m_is_trivial_type) {
+        if constexpr (m_is_trivial_type) {
             // copy the elements before the insertion point
             std::memcpy(newBuffer, m_buffer, sizeof(T) * index);
             // copy the elements past the insertion point
@@ -1584,11 +1673,15 @@ void vector<T, S>::insert(size_type index, TT&& value)
         jman::construct_at<T>(newBuffer + index, static_cast<T>(std::forward<TT>(value)));
         ++constructed;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         // discard the guard, nothing past this line can throw
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
-        jman::destruct_at(m_buffer, m_size);
-        if (m_buffer) m_dealloc(m_buffer);
+        if (m_buffer) { 
+            jman::destruct_at(m_buffer, m_size); 
+            m_dealloc(m_buffer); 
+        }
 
         m_buffer = newBuffer;
         m_capacity = newCapacity;
@@ -1598,8 +1691,12 @@ void vector<T, S>::insert(size_type index, TT&& value)
 template <typename T, typename S>
 void vector<T, S>::insert(size_type index, size_type count, const_reference value)
 {
-    if (count == 0) return;
-    if (index > m_size) JMAN_THROW(std::out_of_range("jman::vector<T>::insert() failed: Index out of range."));
+    if (count == 0) 
+        return;
+
+    if (index > m_size) 
+        JMAN_THROW(std::out_of_range("jman::vector<T>::insert() failed: Index out of range."));
+
     size_type required = m_required_capacity(count);
 
     if (m_capacity >= required)
@@ -1607,10 +1704,8 @@ void vector<T, S>::insert(size_type index, size_type count, const_reference valu
     {
         m_shift_right(index, count);
 
-        for (size_type i = 0; i < count; ++i) {
-            jman::destruct_at(m_buffer + index + i);
+        for (size_type i = 0; i < count; ++i)
             jman::construct_at<T>(m_buffer + index + i, value);
-        }
         m_size += count;
     } else
         // need to allocate a new block to fit the elements
@@ -1620,6 +1715,7 @@ void vector<T, S>::insert(size_type index, size_type count, const_reference valu
         T* newBuffer = m_alloc(newCapacity);
         size_type constructed = 0;
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (
                 m_needs_rollback_on_assign ||
@@ -1629,7 +1725,9 @@ void vector<T, S>::insert(size_type index, size_type count, const_reference valu
                 m_dealloc(newBuffer);
             }
         }};
-        if (m_is_trivial_type) {
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
+
+        if constexpr (m_is_trivial_type) {
             // copy the elements before the insertion point
             std::memcpy(newBuffer, m_buffer, sizeof(T) * index);
             // copy the elements past the insertion point
@@ -1654,11 +1752,15 @@ void vector<T, S>::insert(size_type index, size_type count, const_reference valu
             ++constructed;
         }
 
+#if JMAN_HAS_EXCEPTIONS_ENABLED
         // discard the guard, nothing past this line can throw
         guard.dismiss();
+#endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
-        jman::destruct_at(m_buffer, m_size);
-        if (m_buffer) m_dealloc(m_buffer);
+        if (m_buffer) { 
+            jman::destruct_at(m_buffer, m_size); 
+            m_dealloc(m_buffer); 
+        }
 
         m_buffer = newBuffer;
         m_capacity = newCapacity;

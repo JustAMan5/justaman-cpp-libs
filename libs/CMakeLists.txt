@@ -1,6 +1,7 @@
 include_guard(GLOBAL)
 
 include(compiler_flags)
+include(dependencies)
 
 #######################################################################################
 # ------------------------------ C++20 SPECIFIC BUILDS ----------------------------- #
@@ -8,7 +9,8 @@ include(compiler_flags)
 file(GLOB_RECURSE CPP20_SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cpp20/src/*.cpp")
 
 if(NOT CPP20_SRCS)
-    add_library(justaman_cpp20 INTERFACE) # mark the library as interface (no binary needed, only forwards properties when linked)
+    # mark the library as interface (no binary needed, only forwards properties when linked)
+    add_library(justaman_cpp20 INTERFACE)
     set(LINK_TYPE_CXX20 INTERFACE)
 else()
     add_library(justaman_cpp20 STATIC ${CPP20_SRCS})
@@ -27,6 +29,7 @@ target_include_directories(justaman_cpp20 ${LINK_TYPE_CXX20}
 #   (so cmake doesnt think the folder lives in the same directory on all projects its included)
 
 target_link_libraries(justaman_cpp20 ${LINK_TYPE_CXX20} justaman_compiler_profile)
+target_link_libraries(justaman_cpp20 ${LINK_TYPE_CXX20} ${JUSTAMAN_DEPENDENCIES})
 
 #######################################################################################
 # ------------------------------ C++23 SPECIFIC BUILDS ----------------------------- #
@@ -53,6 +56,7 @@ target_include_directories(justaman_cpp23 ${LINK_TYPE_CXX23}
 )
 
 target_link_libraries(justaman_cpp23 ${LINK_TYPE_CXX23} justaman_compiler_profile)
+target_link_libraries(justaman_cpp23 ${LINK_TYPE_CXX23} ${JUSTAMAN_DEPENDENCIES})
 
 if (MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU") # fix the MinGW / std::print linker error:
     target_link_libraries(justaman_cpp23 ${LINK_TYPE_CXX23} "stdc++exp")
@@ -87,6 +91,7 @@ target_include_directories(justaman_cpp26 ${LINK_TYPE_CXX26}
 )
 
 target_link_libraries(justaman_cpp26 ${LINK_TYPE_CXX26} justaman_compiler_profile)
+target_link_libraries(justaman_cpp26 ${LINK_TYPE_CXX26} ${JUSTAMAN_DEPENDENCIES})
 
 # chain them
 target_link_libraries(justaman_cpp26 ${LINK_TYPE_CXX26} justaman_cpp23)

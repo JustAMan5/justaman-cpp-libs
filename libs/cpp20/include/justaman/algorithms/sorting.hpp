@@ -1,9 +1,11 @@
 #pragma once
 
+#include "numeric.hpp"
+#include <justaman/errors/safe_exceptions.hpp>
+#include <justaman/memory/lifetime.hpp>
+#include <justaman/utils/scope.hpp>
 #include <justaman/utils/attributes.h>
-#include <justaman/containers/vector.hpp> // forced for merge sort for the temp buffer
 #include <bit>
-#include <cstdint>
 #include <iterator>
 #include <type_traits>
 
@@ -65,7 +67,7 @@ namespace jman
     */
     ///@{
     template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
-    constexpr void msort(Iterator start, Iterator end, Compare comp); // no noexcept since it needs to allocate space for the temp vector for the copies
+    constexpr void msort(Iterator start, Iterator end, Compare comp); // no noexcept since it needs to allocate space for the temp array for the copies
 
     template <std::random_access_iterator Iterator>
     JMAN_FORCE_INLINE constexpr void msort(Iterator start, Iterator end);
@@ -161,11 +163,14 @@ namespace jman
 namespace jman::detail
 {
 
+template <std::random_access_iterator Iterator>
 struct intro_sort_task 
 {
-    std::size_t left;
-    std::size_t right;
-    std::size_t depth;
+    using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+
+    diff_t left;
+    diff_t right;
+    int depth;
 };
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
@@ -195,16 +200,17 @@ constexpr Iterator qsort_partition(Iterator start, Iterator end, Comp comp)
 }
 
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Comp>
-constexpr void hsort_heapify(Iterator start, Iterator end, std::size_t i, Comp comp) 
+constexpr void hsort_heapify(Iterator start, Iterator end, typename std::iterator_traits<Iterator>::difference_type i, Comp comp) 
     noexcept(jman::is_nothrow_sortable_comp<Iterator, Comp>)
 {
-    std::size_t length = end - start;
+    using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+    diff_t length = end - start;
     
     while (true)
     {
-        std::size_t largest = i;
-        std::size_t l = 2 * i + 1;
-        std::size_t r = 2 * i + 2;
+        diff_t largest = i;
+        diff_t l = 2 * i + 1;
+        diff_t r = 2 * i + 2;
 
         // if left child is larger set it as largest
         if (l < length && !comp(start[l], start[largest]))
@@ -227,26 +233,24 @@ template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<
 constexpr void msort_merge(
     Iterator L1, Iterator R1, 
     Iterator L2, Iterator R2, 
-    jman::vector<std::iter_value_t<Iterator>>* temp,
+    std::iter_value_t<Iterator>* temp,
     Comp comp
 )
     noexcept(jman::is_nothrow_sortable_comp<Iterator, Comp>)
 {
-    std::size_t i = 0;
-    auto start1 = L1;
-    auto start2 = L2;
-    
+    using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+    diff_t i = 0;
 
     // in here we r using <= because the code treats R1 and R2 as the last actual element and not the next position after the last
     while (L1 <= R1 && L2 <= R2)
     {
         if (comp(*L1, *L2)) {
-            (*temp)[i] = std::move_if_noexcept(*L1);
+            jman::construct_at(temp + i, std::move_if_noexcept(*L1));
             ++i;
             ++L1;
         }
         else {
-            (*temp)[i] = std::move_if_noexcept(*L2);
+            jman::construct_at(temp + i, std::move_if_noexcept(*L2));
             ++i;
             ++L2;
         }
@@ -256,14 +260,15 @@ constexpr void msort_merge(
 
     while (L1 <= R1) 
     {
-        (*temp)[i] = std::move_if_noexcept(*L1);
+        jman::construct_at(temp + i, std::move_if_noexcept(*L1));
         ++i;
         ++L1;
     }
 
     while (L2 <= R2)
     {
-        (*temp)[i] = std::move_if_noexcept(*L2);
+        
+        jman::construct_at(temp + i, std::move_if_noexcept(*L2));
         ++i;
         ++L2;
     }
@@ -347,23 +352,29 @@ JMAN_FORCE_INLINE constexpr void qsort(Iterator first, Iterator last)
 template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<Iterator> Compare>
 constexpr void msort(Iterator start, Iterator end, Compare comp)
 {
+    using diff_t = typename std::iterator_traits<Iterator>::difference_type;
     using T = std::iter_value_t<Iterator>;
 
-    std::size_t length = end - start;
+    diff_t length = end - start;
     if (length <= 1) return;
 
-    jman::vector<T> tmp {}; tmp.resize(length);
+    std::size_t result;
+    if JMAN_UNLIKELY(!jman::validate_mul<std::size_t>(sizeof(T), static_cast<std::size_t>(length), &result))
+        JMAN_THROW(std::overflow_error("jman::msort<Iterator, Compare> failed: calculated capacity for the merge sort temporary buffer overflows the std::size_t."));
+    
+    T* tmp = static_cast<T*>(::operator new(result, std::align_val_t{alignof(T)}));
+    jman::scope_guard tmp_guard {[tmp](){::operator delete(static_cast<void*>(tmp), std::align_val_t{alignof(T)});}};
 
-    std::size_t len = 1;
+    diff_t len = 1;
     while (len < length)
     {
-        std::size_t i = 0;
+        diff_t i = 0;
         while (i < length)
         {
-            std::size_t L1 = i;
-            std::size_t R1 = i + len - 1;
-            std::size_t L2 = i + len;
-            std::size_t R2 = i + 2 * len - 1;
+            diff_t L1 = i;
+            diff_t R1 = i + len - 1;
+            diff_t L2 = i + len;
+            diff_t R2 = i + 2 * len - 1;
 
             if (L2 >= length)
                 break;
@@ -371,9 +382,11 @@ constexpr void msort(Iterator start, Iterator end, Compare comp)
             if (R2 >= length)
                 R2 = length - 1;
 
-            detail::msort_merge(start + L1, start + R1, start + L2, start + R2, &tmp, comp);
-            for (std::size_t j = 0; j < R2 - L1 + 1; ++j)
+            detail::msort_merge(start + L1, start + R1, start + L2, start + R2, tmp, comp);
+            for (diff_t j = 0; j < R2 - L1 + 1; ++j) {
                 start[i + j] = std::move_if_noexcept(tmp[j]);
+                jman::destruct_at(tmp + j);
+            }
     
             i += len << 1;
 
@@ -382,8 +395,7 @@ constexpr void msort(Iterator start, Iterator end, Compare comp)
     }
 }
 
-template <typename Iterator>
-requires std::random_access_iterator<Iterator>
+template <std::random_access_iterator Iterator>
 JMAN_FORCE_INLINE constexpr void msort(Iterator first, Iterator last)
 {
     msort(first, last, std::less{});
@@ -398,15 +410,17 @@ template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<
 constexpr void hsort(Iterator start, Iterator end, Compare comp)
     noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
-    std::size_t length = end - start;
+    using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+
+    diff_t length = end - start;
     if (length <= 1) return;
 
     // build heap inplace
-    for (std::int64_t i = length / 2 - 1; i >= 0; --i)
+    for (diff_t i = length / 2; i-- > 0;)
         detail::hsort_heapify(start, end, i, comp);
 
     // one by one extract top elements from the heap and swap them with the back
-    for (std::int64_t i = length - 1; i > 0; --i) {
+    for (diff_t i = length; i-- > 0;) {
 
         // Move current root to end
         std::swap(start[0], start[i]);
@@ -432,15 +446,17 @@ template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<
 constexpr void isort(Iterator start, Iterator end, Compare comp)
     noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
-    std::size_t length = end - start;
+    using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+
+    diff_t length = end - start;
     if (length <= 1) return;
 
     using T = std::iter_value_t<Iterator>;
 
     // start with the second element since the first one is assumed its already sorted
-    for (std::size_t i = 1; i < length; ++i) {
+    for (diff_t i = 1; i < length; ++i) {
         T value = std::move_if_noexcept(start[i]);
-        std::size_t j = i - 1;
+        diff_t j = i - 1;
 
         /* Move elements of the array that are
         greater than value to one position ahead
@@ -470,16 +486,18 @@ template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<
 constexpr void ssort(Iterator start, Iterator end, Compare comp)
     noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
-    std::size_t length = end - start;
+    using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+
+    diff_t length = end - start;
     if (length <= 1) return;
 
-    for (std::size_t i = 0; i < length - 1; ++i) {
+    for (diff_t i = 0; i < length - 1; ++i) {
 
-        std::size_t min_idx = i;
+        diff_t min_idx = i;
 
         // iterate through the unsorted portion
         // to find the actual minimum
-        for (int j = i + 1; j < length; ++j)
+        for (diff_t j = i + 1; j < length; ++j)
             if (comp(start[j], start[min_idx])) {
 
                 // update min_idx if a smaller element is found
@@ -507,20 +525,22 @@ template <std::random_access_iterator Iterator, std::indirect_strict_weak_order<
 constexpr void sort(Iterator start, Iterator end, Compare comp)
     noexcept(is_nothrow_sortable_comp<Iterator, Compare>)
 {
-    std::size_t length = end - start;
+    using diff_t = typename std::iterator_traits<Iterator>::difference_type;
+
+    diff_t length = end - start;
     if (length <= 1) return;
 
-    std::size_t depthLimit = 2 * std::bit_width(length);
+    int depthLimit = 2 * std::bit_width(static_cast<std::make_unsigned_t<diff_t>>(length));
 
-    detail::intro_sort_task stack[128];
+    detail::intro_sort_task<Iterator> stack[128];
     int top = -1;
     stack[++top] = {0, length - 1, depthLimit};
 
 
     while (top >= 0) 
     {
-        detail::intro_sort_task task = stack[top--];
-        std::size_t subLength = task.right - task.left + 1;
+        detail::intro_sort_task<Iterator> task = stack[top--];
+        diff_t subLength = task.right - task.left + 1;
 
         // case 1: portion is very small, use insertion sort
         if (subLength < 16) {
@@ -535,7 +555,7 @@ constexpr void sort(Iterator start, Iterator end, Compare comp)
         }
 
         // use median of three to find a pivot index for quick sort
-        std::size_t pivot_idx = detail::qsort_partition(start + task.left, start + task.right + 1, comp) - start;
+        diff_t pivot_idx = detail::qsort_partition(start + task.left, start + task.right + 1, comp) - start;
 
         // add sub arrays tasks to the stack 
         // (small stack optimization) add first the largest sub array

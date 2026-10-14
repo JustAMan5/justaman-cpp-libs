@@ -2,7 +2,7 @@ include_guard(GLOBAL)
 
 include(CheckCompilerFlag)
 
-# only useful for passing the properties to anything that links to it
+# add an empty library that only forwards properties to targets that include it
 add_library(justaman_compiler_profile INTERFACE)
 
 
@@ -15,10 +15,7 @@ target_compile_options(justaman_compiler_profile INTERFACE
     $<$<CXX_COMPILER_ID:Clang,GNU>: # if the compiler is clang or gcc
         $<$<BOOL:${JUSTAMAN_WARNINGS_AS_ERRORS}>:-Werror>
         $<$<BOOL:${JUSTAMAN_EXTRA_WARNINGS}>: -Wall -Wextra -Wpedantic -Wshadow -Wconversion>
-        $<$<CONFIG:Release>: # if in release
-            $<$<BOOL:${JUSTAMAN_OPTIMIZE_FOR_SIZE}>:-Os> # optimize for size
-            $<$<NOT:$<BOOL:${JUSTAMAN_OPTIMIZE_FOR_SIZE}>>:-O3 -DNDEBUG> # default agressive opt release
-        >
+        $<$<CONFIG:MinRelSize>:-Os>
         $<$<CONFIG:Debug>:-g -O0>
     >
     # ---------- msvc toolchain
@@ -26,10 +23,7 @@ target_compile_options(justaman_compiler_profile INTERFACE
         /Zc:__cplusplus
         $<$<BOOL:${JUSTAMAN_WARNINGS_AS_ERRORS}>:/WX>
         $<$<BOOL:${JUSTAMAN_EXTRA_WARNINGS}>: /W4 /permissive->
-        $<$<CONFIG:Release>: # if in release
-            $<$<BOOL:${JUSTAMAN_OPTIMIZE_FOR_SIZE}>:/O1>
-            $<$<NOT:$<BOOL:${JUSTAMAN_OPTIMIZE_FOR_SIZE}>>:/O2 /DNDEBUG>
-        >
+        $<$<CONFIG:Release>:/O1>
         $<$<CONFIG:Debug>:/Od>
     >
 )
@@ -72,7 +66,7 @@ if(JUSTAMAN_HARDWARE_OPTIMIZATIONS)
         endif()
 
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-        # MSVC doesnt have any -march=native flag, so fallback to explicit instructions support
+        # MSVC doesnt have any -march=native flag, so fallback to explicit instructions support checks
         check_compiler_flag(CXX "/arch:AVX512" COMPILER_SUPPORTS_AVX512)
         check_compiler_flag(CXX "/arch:AVX2" COMPILER_SUPPORTS_AVX2)
 
@@ -85,17 +79,24 @@ if(JUSTAMAN_HARDWARE_OPTIMIZATIONS)
 endif()
 
 # ---------------- linke time optimization (LTO)
-if(JUSTAMAN_LTO_FLAG)
-    target_compile_options(justaman_compiler_profile INTERFACE
-        $<$<CXX_COMPILER_ID:Clang>:-flto=thin>
-        $<$<CXX_COMPILER_ID:GNU>:-flto=auto>
-        $<$<CXX_COMPILER_ID:MSVC>:/GL>
-    )
-    target_link_options(justaman_compiler_profile INTERFACE
-        $<$<CXX_COMPILER_ID:Clang>:-flto=thin>
-        $<$<CXX_COMPILER_ID:GNU>:-flto=auto>
-        $<$<CXX_COMPILER_ID:MSVC>:/LTCG>
-    )
+if(JUSTAMAN_LINK_TIME_OPT)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT ipo_supported LANGUAGES CXX)
+    
+    if(ipo_supported)
+        target_compile_options(justaman_compiler_profile INTERFACE 
+            $<$<CXX_COMPILER_ID:Clang>:-flto=thin> 
+            $<$<CXX_COMPILER_ID:GNU>:-flto=auto> 
+            $<$<CXX_COMPILER_ID:MSVC>:/GL>
+        )
+        target_link_options(justaman_compiler_profile INTERFACE 
+            $<$<CXX_COMPILER_ID:Clang>:-flto=thin> 
+            $<$<CXX_COMPILER_ID:GNU>:-flto=auto> 
+            $<$<CXX_COMPILER_ID:MSVC>:/LTCG>
+        )
+    else()
+        message(WARNING "LTO/IPO is not supported by the current compiler toolchain.")
+    endif()
 endif()
 
 
@@ -138,8 +139,8 @@ rn im not too smart to remember them all or just know what they do from their na
     * "/fp:fast"      -> same as -ffast-math
     * "/EHs-c-"       -> disables C++ exceptions (equivalent to -fno-exceptions)
     * "/GR-"          -> disables runtime type information (equivalent to -fno-rtti).
-    * "/arch:AVX2"    -> generates vector instructions optimized for modern CPUs that support advanced vector extensions 2.
-    * "/arch:AVX512"  -> generates intensive vector processing instructions for high-end modern CPUs supporting AVX-512.
+    * "/arch:AVX2"    -> generates vector instructions optimized for modern CPUs that support advanced vector extensions with 256 bits.
+    * "/arch:AVX512"  -> generates intensive vector processing instructions for high-end modern CPUs supporting AVX-512 (512 bits).
     * "/GL"           -> whole Program Optimization. Tells the compiler to leave parsing open so code optimization can happen during linking.
     * "/LTCG"         -> Link-Time Code Generation. Used at the link step to execute the actual optimizations enabled by `/GL`.
 

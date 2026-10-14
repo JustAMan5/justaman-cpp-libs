@@ -1,15 +1,29 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.30)
+
+###################################################################################################################
+# ---------------------------------------------- PROJECT CONFIGURATION -------------------------------------------
+#################################################################################################################
+
 project(
     justaman_libs
     VERSION 1.0.0
     LANGUAGES CXX
 )
 
+# shortcut paths
 list(APPEND CMAKE_MODULE_PATH 
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/config"
 )
+
+###################################################################################################################
+# ---------------------------------------------------- Configs ---------------------------------------------------
+#################################################################################################################
+
+if(PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
 
 include(global_options)
 include(compiler_flags)
@@ -23,6 +37,10 @@ include(dependencies)
 #     message(WARNING "Active compiler doesnt support time profiling")
 # endif()
 
+###################################################################################################################
+# ------------------------------------------ Subdirectories and tests --------------------------------------------
+#################################################################################################################
+
 add_subdirectory(libs) # load the LIBRARIES
 
 if(PROJECT_IS_TOP_LEVEL)
@@ -30,13 +48,26 @@ if(PROJECT_IS_TOP_LEVEL)
     add_subdirectory(tests) # load the tests if project is top level
 endif()
 
-if(PROJECT_IS_TOP_LEVEL) # copy the compile commands to the source dir for clangd to find it
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_BINARY_DIR}/compile_commands.json" 
-        "${CMAKE_SOURCE_DIR}/compile_commands.json"
-    )
+###################################################################################################################
+# -------------------------------------------- Post-configuration ------------------------------------------------
+#################################################################################################################
+
+if(PROJECT_IS_TOP_LEVEL)
+    if(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux|Darwin")
+        # linux or macos -> create a symbolic link
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E create_symlink 
+                "${CMAKE_BINARY_DIR}/compile_commands.json" 
+                "${CMAKE_SOURCE_DIR}/compile_commands.json"
+        )
+    else()
+        # windows or others -> copy the file (the root folder version will be 1 step outdated compared to the build file)
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E copy 
+                "${CMAKE_BINARY_DIR}/compile_commands.json" 
+                "${CMAKE_SOURCE_DIR}/compile_commands.json"
+        )
+    endif()
 endif()
 
 message(STATUS "------------------------ JustAMan's C++ libs --------------------------")
@@ -56,5 +87,4 @@ message(STATUS "    * LTO:                      ${JUSTAMAN_LINK_TIME_OPT}")
 message(STATUS "    * Disable exceptions:       ${JUSTAMAN_DISABLE_EXCEPTIONS}")
 message(STATUS "    * Disable RTTI:             ${JUSTAMAN_DISABLE_RTTI}")
 message(STATUS "    * Fast Math:                ${JUSTAMAN_ENABLE_FAST_MATH}")
-message(STATUS "    * Optimize for size:        ${JUSTAMAN_OPTIMIZE_FOR_SIZE}")
 message(STATUS "-----------------------------------------------------------------------")
