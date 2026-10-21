@@ -4,8 +4,6 @@
 #include <functional>
 #include <stop_token>
 #include <thread>
-#include <condition_variable>
-#include <mutex>
 
 namespace jman 
 {
@@ -14,7 +12,7 @@ namespace jman
 // ################################################################################################
 struct thread_pool::impl 
 {
-    std::vector<std::jthread>                  workers              {};
+    jman::vector<std::jthread>                 workers              {};
     jman::priority_queue
         <std::move_only_function<void(std::stop_token)>, jman::use_external_priority_t>      
                                                tasks                {};

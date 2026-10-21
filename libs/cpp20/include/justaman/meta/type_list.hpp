@@ -14,8 +14,8 @@ namespace jman
 template <typename... T>
 struct type_list {};
 
-
-
+namespace meta 
+{
 // ###############################################
 // ----------------------------------------- size
 // #############################################
@@ -237,5 +237,6 @@ struct unpack<type_list<Ts...>, T> {
 template <typename TList, template <typename...> class Container>
 using unpack_t = typename unpack<TList, Container>::type;
 ///@}
+} // namespace jman::meta
 
 } // namespace jman

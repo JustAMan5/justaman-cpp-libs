@@ -17,3 +17,5 @@ option(JUSTAMAN_LINK_TIME_OPT             "Enable Link Time Optimizations"      
 option(JUSTAMAN_DISABLE_EXCEPTIONS        "Compile libraries without C++ exceptions"                        OFF)
 option(JUSTAMAN_DISABLE_RTTI              "Disable RTTI (Runtime type infomration, typeid, dynamic_cast)"   OFF)
 option(JUSTAMAN_ENABLE_FAST_MATH          "Enable aggressive floating-point optimizations (-ffast-math)"    OFF)
+
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF) # disable experimental C++20 module features and fix stupid ass clangd failing on mingw

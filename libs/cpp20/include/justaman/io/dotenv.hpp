@@ -42,7 +42,7 @@ namespace jman
                 double
             >;
 
-            using var_t = jman::unpack_t<supported_types_t, std::variant>;
+            using var_t = jman::meta::unpack_t<supported_types_t, std::variant>;
     
             dotenv() = default; // not loaded
             JMAN_NO_DISCARD static inline std::optional<dotenv>         parse(std::string_view filepath) noexcept;
@@ -53,12 +53,12 @@ namespace jman
             JMAN_NO_DISCARD JMAN_FORCE_INLINE bool                      exists(std::string_view key) const noexcept;
 
             template <typename T>
-            requires jman::contains_v<T, supported_types_t>
+            requires jman::meta::contains_v<T, supported_types_t>
             JMAN_NO_DISCARD return_type_t<T>                            get_or(std::string_view key, const T& fallback) const;
             JMAN_NO_DISCARD inline std::string_view                     get_view_or(std::string_view key, std::string_view fallback) const;
 
             template <typename T>
-            requires jman::contains_v<T, supported_types_t>
+            requires jman::meta::contains_v<T, supported_types_t>
             JMAN_NO_DISCARD std::optional<T>                            get(std::string_view key) const;
             JMAN_NO_DISCARD inline std::optional<std::string_view>      get_view(std::string_view key) const;
 
@@ -137,7 +137,7 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE bool dotenv::exists(std::string_view key) cons
 }
 
 template <typename T>
-requires jman::contains_v<T, dotenv::supported_types_t>
+requires jman::meta::contains_v<T, dotenv::supported_types_t>
 dotenv::return_type_t<T> dotenv::get_or(std::string_view key, const T& fallback) const
 {
     if (key.empty()) return fallback;
@@ -163,7 +163,7 @@ inline std::string_view dotenv::get_view_or(std::string_view key, std::string_vi
 }
 
 template <typename T>
-requires jman::contains_v<T, dotenv::supported_types_t>
+requires jman::meta::contains_v<T, dotenv::supported_types_t>
 std::optional<T> dotenv::get(std::string_view key) const
 {
     if (key.empty()) return std::nullopt;

@@ -469,7 +469,7 @@ void vector<T, S>::m_shift_right(size_type index, size_type count)
                     size_type original_idx = current_idx - count;
 
                     m_buffer[original_idx] = std::move_if_noexcept(m_buffer[current_idx]);
-                    if (current_idx >= m_size) jman::destruct_at(m_buffer + current_idx);
+                    if (current_idx >= m_size) jman::destruct_at<T>(m_buffer + current_idx);
                 }
         }};
 #endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
@@ -556,7 +556,7 @@ void vector<T, S>::m_grow(size_type increase)
         auto guard = jman::scope_guard{[&](){
             // destroys the constructed and deallocated and acts like nothing happened
             if constexpr (m_needs_rollback_on_construct) {
-                jman::destruct_at(constructed, ptr);
+                jman::destruct_at<T, size_type>(constructed, ptr);
                 m_dealloc(ptr);
             }
         }};
@@ -574,7 +574,7 @@ void vector<T, S>::m_grow(size_type increase)
     }
     
     if (m_buffer) {
-        jman::destruct_at(m_buffer, m_size);
+        jman::destruct_at<T, size_type>(m_buffer, m_size);
         m_dealloc(m_buffer);
     }
 
@@ -631,7 +631,7 @@ void vector<T, S>::m_insert_range(size_type index, T* src, size_type count)
                 if constexpr (
                     m_needs_rollback_on_assign || m_needs_rollback_on_construct
                 ){
-                    jman::destruct_at(constructed, newBuffer);
+                    jman::destruct_at<T, size_type>(constructed, newBuffer);
                     m_dealloc(newBuffer);
                 }
             }};
@@ -671,7 +671,7 @@ void vector<T, S>::m_insert_range(size_type index, T* src, size_type count)
         }
 
         if (m_buffer) {
-            jman::destruct_at(m_buffer, m_size);
+            jman::destruct_at<T, size_type>(m_buffer, m_size);
             m_dealloc(m_buffer);
         }
 
@@ -702,7 +702,7 @@ vector<T, S>::vector(std::initializer_list<T> list)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-                jman::destruct_at(m_size, m_buffer);
+                jman::destruct_at<T, size_type>(m_size, m_buffer);
                 m_dealloc(m_buffer);
 
                 m_buffer = nullptr;
@@ -734,7 +734,7 @@ vector<T, S>::vector(size_type size)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
     auto guard = jman::scope_guard{[&](){
         if constexpr (!std::is_nothrow_default_constructible_v<T>) {
-            jman::destruct_at(m_size, m_buffer);
+            jman::destruct_at<T, size_type>(m_size, m_buffer);
             m_dealloc(m_buffer);
 
             m_buffer = nullptr;
@@ -765,7 +765,7 @@ vector<T, S>::vector(size_type size, const T& value)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
     auto guard = jman::scope_guard{[&](){
         if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-            jman::destruct_at(m_size, m_buffer);
+            jman::destruct_at<T, size_type>(m_size, m_buffer);
             m_dealloc(m_buffer);
 
             m_buffer = nullptr;
@@ -803,7 +803,7 @@ vector<T, S>::vector(const vector& other)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-                jman::destruct_at(m_size, m_buffer);
+                jman::destruct_at<T, size_type>(m_size, m_buffer);
                 m_dealloc(m_buffer);
 
                 m_buffer = nullptr;
@@ -849,7 +849,7 @@ vector<T, S>& vector<T, S>::operator=(const vector& other)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
             auto guard = jman::scope_guard{[&](){
                 if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-                    jman::destruct_at(constructed, buff);
+                    jman::destruct_at<T, size_type>(constructed, buff);
                     m_dealloc(buff);
                 }
             }};
@@ -865,7 +865,7 @@ vector<T, S>& vector<T, S>::operator=(const vector& other)
         }
 
         if (m_buffer) {
-            jman::destruct_at(m_buffer, m_size);
+            jman::destruct_at<T, size_type>(m_buffer, m_size);
             m_dealloc(m_buffer);
         }
 
@@ -882,7 +882,7 @@ vector<T, S>& vector<T, S>::operator=(const vector& other)
                 m_buffer[i] = other.m_buffer[i];
 
         m_size = other.m_size;
-        jman::destruct_at(m_buffer + m_size, m_capacity - m_size);
+        jman::destruct_at<T, size_type>(m_buffer + m_size, m_capacity - m_size);
     }
 
     return *this;
@@ -914,7 +914,7 @@ vector<T, S>& vector<T, S>::operator=(std::initializer_list<T> list)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
             auto guard = jman::scope_guard{[&](){
                 if constexpr (!std::is_nothrow_copy_constructible_v<T>) {
-                    jman::destruct_at(constructed, buff);
+                    jman::destruct_at<T, size_type>(constructed, buff);
                     m_dealloc(buff);
                 }
             }};
@@ -931,7 +931,7 @@ vector<T, S>& vector<T, S>::operator=(std::initializer_list<T> list)
 
 
         if (m_buffer) {
-            jman::destruct_at(m_buffer, m_size);
+            jman::destruct_at<T, size_type>(m_buffer, m_size);
             m_dealloc(m_buffer);
         }
 
@@ -952,7 +952,7 @@ vector<T, S>& vector<T, S>::operator=(std::initializer_list<T> list)
         }
 
         m_size = list.size();
-        jman::destruct_at(m_buffer + m_size, m_capacity - m_size);
+        jman::destruct_at<T, size_type>(m_buffer + m_size, m_capacity - m_size);
     }
 
     return *this;
@@ -1106,7 +1106,7 @@ void vector<T, S>::reserve(size_type count)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
         auto guard = jman::scope_guard{[&](){
             if constexpr (m_needs_rollback_on_construct) {
-                jman::destruct_at(reserved, constructed);
+                jman::destruct_at<T, size_type>(reserved, constructed);
                 m_dealloc(reserved);
             }
         }};
@@ -1123,7 +1123,7 @@ void vector<T, S>::reserve(size_type count)
     }
 
     if (m_buffer) {
-        jman::destruct_at(m_buffer, m_size);    
+        jman::destruct_at<T, size_type>(m_buffer, m_size);    
         m_dealloc(m_buffer);
     }
 
@@ -1148,7 +1148,7 @@ void vector<T, S>::set_capacity(size_type capacity)
 template <typename T, typename S>
 void vector<T, S>::clear() noexcept
 {
-    jman::destruct_at(m_buffer, m_size);
+    jman::destruct_at<T, size_type>(m_buffer, m_size);
     m_size = 0;
 }
 
@@ -1158,7 +1158,7 @@ void vector<T, S>::reset() noexcept
     if (!m_buffer) 
         return;
 
-    jman::destruct_at(m_buffer, m_size);
+    jman::destruct_at<T, size_type>(m_buffer, m_size);
     m_dealloc(m_buffer);
 
     m_buffer = nullptr;
@@ -1185,7 +1185,7 @@ void vector<T, S>::resize(size_type newSize)
                 m_needs_rollback_on_construct &&
                 !std::is_nothrow_default_constructible_v<T>
             ) {
-                jman::destruct_at(constructed, ptr);
+                jman::destruct_at<T, size_type>(constructed, ptr);
                 m_dealloc(ptr);
             }
         }};
@@ -1210,7 +1210,7 @@ void vector<T, S>::resize(size_type newSize)
 #endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         if (m_buffer) { 
-            jman::destruct_at(m_buffer, m_size); 
+            jman::destruct_at<T, size_type>(m_buffer, m_size); 
             m_dealloc(m_buffer); 
         }
 
@@ -1220,7 +1220,7 @@ void vector<T, S>::resize(size_type newSize)
     else if (newSize < m_size)
     // decrease the contents and capacity of the vector
     {
-        jman::destruct_at(m_size - newSize, m_buffer + m_size - 1);
+        jman::destruct_at<T, size_type>(m_size - newSize, m_buffer + m_size - 1);
         m_size = newSize;
 
         if (newSize == 0) {
@@ -1241,7 +1241,7 @@ void vector<T, S>::resize(size_type newSize)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
             auto guard = jman::scope_guard{[&](){
                 if constexpr (m_needs_rollback_on_construct) {
-                    jman::destruct_at(ptr, constructed);
+                    jman::destruct_at<T, size_type>(ptr, constructed);
                     m_dealloc(ptr);
                 }
             }};
@@ -1257,7 +1257,7 @@ void vector<T, S>::resize(size_type newSize)
         }
 
         if (m_buffer) { 
-            jman::destruct_at(m_buffer, m_size); 
+            jman::destruct_at<T, size_type>(m_buffer, m_size); 
             m_dealloc(m_buffer); 
         }
 
@@ -1281,7 +1281,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
                 m_needs_rollback_on_construct &&
                 !std::is_nothrow_default_constructible_v<T>
             ) {
-                jman::destruct_at(constructed, ptr);
+                jman::destruct_at<T, size_type>(constructed, ptr);
                 m_dealloc(ptr);
             }
         }};
@@ -1305,7 +1305,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
 #endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         if (m_buffer) { 
-            jman::destruct_at(m_buffer, m_size); 
+            jman::destruct_at<T, size_type>(m_buffer, m_size); 
             m_dealloc(m_buffer); 
         }
 
@@ -1315,7 +1315,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
     else if (newSize < m_size)
     // decrease the contents and capacity of the vector
     {
-        jman::destruct_at(m_size - newSize, m_buffer + m_size - 1);
+        jman::destruct_at<T, size_type>(m_size - newSize, m_buffer + m_size - 1);
         m_size = newSize;
 
         if (newSize == 0) {
@@ -1336,7 +1336,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
 #if JMAN_HAS_EXCEPTIONS_ENABLED
             auto guard = jman::scope_guard{[&](){
                 if constexpr (m_needs_rollback_on_construct) {
-                    jman::destruct_at(ptr, constructed);
+                    jman::destruct_at<T, size_type>(ptr, constructed);
                     m_dealloc(ptr);
                 }
             }};
@@ -1352,7 +1352,7 @@ void vector<T, S>::resize(S newSize, const_reference value)
         }
 
         if (m_buffer) { 
-            jman::destruct_at(m_buffer, m_size); 
+            jman::destruct_at<T, size_type>(m_buffer, m_size); 
             m_dealloc(m_buffer); 
         }
 
@@ -1456,7 +1456,7 @@ void vector<T, S>::remove_if(Predicate pred)
     }
 
     // destroy the remaining objects
-    jman::destruct_at(jman::addressof(*dest), static_cast<size_type>(original_end - dest));
+    jman::destruct_at<T, size_type>(jman::addressof(*dest), static_cast<size_type>(original_end - dest));
     m_size = dest - begin();
 }
 
@@ -1477,7 +1477,7 @@ void vector<T, S>::remove(const_reference value)
             *dest++ = std::move_if_noexcept(*i);
 
     // destroy the remaining objects
-    jman::destruct_at(jman::addressof(*dest), static_cast<size_type>(original_end - dest));
+    jman::destruct_at<T, size_type>(jman::addressof(*dest), static_cast<size_type>(original_end - dest));
     m_size = dest - begin();
 }
 
@@ -1534,7 +1534,7 @@ vector<T, S>::size_type vector<T, S>::unique()
             ++removed;
 
     ++result;
-    jman::destruct_at(jman::addressof(*result), static_cast<size_type>(original_end - result));
+    jman::destruct_at<T, size_type>(jman::addressof(*result), static_cast<size_type>(original_end - result));
 
     m_size = result - begin();
     return removed;
@@ -1559,7 +1559,7 @@ vector<T, S>::size_type vector<T, S>::unique(Predicate pred)
             ++removed;
 
     ++result;
-    jman::destruct_at(jman::addressof(*result), static_cast<size_type>(original_end - result));
+    jman::destruct_at<T, size_type>(jman::addressof(*result), static_cast<size_type>(original_end - result));
 
     m_size = result - begin();
     return removed;
@@ -1586,7 +1586,7 @@ void vector<T, S>::retain(Predicate pred)
     }
 
     // destroy the remaining elements
-    jman::destruct_at(jman::addressof(*dest), static_cast<size_type>(original_end - dest));
+    jman::destruct_at<T, size_type>(jman::addressof(*dest), static_cast<size_type>(original_end - dest));
     m_size = dest - begin();
 }
 
@@ -1643,7 +1643,7 @@ void vector<T, S>::insert(size_type index, TT&& value)
                 m_needs_rollback_on_assign ||
                 m_needs_rollback_on_construct
             ){
-                jman::destruct_at(constructed, newBuffer);
+                jman::destruct_at<T, size_type>(constructed, newBuffer);
                 m_dealloc(newBuffer);
             }
         }};
@@ -1679,7 +1679,7 @@ void vector<T, S>::insert(size_type index, TT&& value)
 #endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         if (m_buffer) { 
-            jman::destruct_at(m_buffer, m_size); 
+            jman::destruct_at<T, size_type>(m_buffer, m_size); 
             m_dealloc(m_buffer); 
         }
 
@@ -1721,7 +1721,7 @@ void vector<T, S>::insert(size_type index, size_type count, const_reference valu
                 m_needs_rollback_on_assign ||
                 m_needs_rollback_on_construct
             ){
-                jman::destruct_at(constructed, newBuffer);
+                jman::destruct_at<T, size_type>(constructed, newBuffer);
                 m_dealloc(newBuffer);
             }
         }};
@@ -1758,7 +1758,7 @@ void vector<T, S>::insert(size_type index, size_type count, const_reference valu
 #endif // #if JMAN_HAS_EXCEPTIONS_ENABLED
 
         if (m_buffer) { 
-            jman::destruct_at(m_buffer, m_size); 
+            jman::destruct_at<T, size_type>(m_buffer, m_size); 
             m_dealloc(m_buffer); 
         }
 
@@ -1839,7 +1839,7 @@ void vector<T, S>::assign(size_type count, const T& value)
 
         for (size_type i = 0; i < count; ++i) {
             if (i < oldSize)
-                jman::destruct_at(m_buffer + i);
+                jman::destruct_at<T>(m_buffer + i);
 
             jman::construct_at<T>(m_buffer + i, value);
             ++m_size;
@@ -1924,7 +1924,7 @@ void vector<T, S>::pop_back() noexcept
 {
     if (empty()) return;
     --m_size;
-    jman::destruct_at(m_buffer + m_size);
+    jman::destruct_at<T>(m_buffer + m_size);
 }
 
 
@@ -1939,7 +1939,7 @@ vector<T, S>::size_type vector<T, S>::erase(size_type index)
     m_shift_left(index, 1);
 
     --m_size;
-    jman::destruct_at(m_buffer + m_size);
+    jman::destruct_at<T>(m_buffer + m_size);
     return m_size;
 }
 template <typename T, typename S>
@@ -1958,7 +1958,7 @@ vector<T, S>::size_type vector<T, S>::erase(size_type first, size_type last)
     }
 
     m_shift_left(first, count);
-    jman::destruct_at(m_buffer + m_size - count, count);
+    jman::destruct_at<T, size_type>(m_buffer + m_size - count, count);
 
     m_size -= count;
     return m_size;

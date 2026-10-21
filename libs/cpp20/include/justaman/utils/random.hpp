@@ -2,7 +2,6 @@
 
 #include "attributes.h"
 #include <concepts>
-#include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <random>
@@ -19,6 +18,7 @@ namespace jman
             inline random32();
             inline explicit random32(result_type seed);
 
+            // -------------- seeding and getters
             JMAN_FORCE_INLINE void                          reseed(result_type seed = std::random_device()());
             JMAN_FORCE_INLINE void                          discard(unsigned long long z);
 
@@ -26,23 +26,20 @@ namespace jman
             JMAN_NO_DISCARD JMAN_FORCE_INLINE result_type   max() const noexcept;
             JMAN_NO_DISCARD JMAN_FORCE_INLINE result_type   raw_next();
 
+            // ------------ basic distributions
             bool                                            chance(double probability = 0.5);
-
             template<std::integral T>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE T             range(T min, T max);
-
             template<std::floating_point T = float>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE T             range(T min, T max);
-
             template<std::integral T = int>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE T             sign();
- 
             template<std::floating_point T = float>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE T             variation(T mean, T stddev);
 
 
 
-            
+            // --------- container / iterator operations
             template<std::input_iterator Iter>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE const typename std::iterator_traits<Iter>::value_type&      
                                                             choice(Iter begin, Iter end);
@@ -64,7 +61,8 @@ namespace jman
 
             inline random64();
             inline explicit random64(result_type seed);
-
+            
+            // -------------- seeding and getters
             JMAN_FORCE_INLINE void                          reseed(result_type seed);
             JMAN_FORCE_INLINE void                          reseed();
             JMAN_FORCE_INLINE void                          discard(unsigned long long z);
@@ -73,20 +71,19 @@ namespace jman
             JMAN_NO_DISCARD JMAN_FORCE_INLINE result_type   max() const noexcept;
             JMAN_NO_DISCARD JMAN_FORCE_INLINE result_type   raw_next();
 
+            // ------------ basic distributions
             bool                                            chance(double probability = 0.5);
 
             template<std::integral T>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE T             range(T min, T max);
-
             template<std::floating_point T = float>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE T             range(T min, T max);
-
             template<std::integral T = int>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE T             sign();
-
             template<std::floating_point T = float>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE T             variation(T mean, T stddev);
 
+            // --------- container / iterator operations
             template<std::input_iterator Iter>
             JMAN_NO_DISCARD JMAN_FORCE_INLINE const typename std::iterator_traits<Iter>::value_type&      
                                                             choice(Iter begin, Iter end);
@@ -154,7 +151,7 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE random32::result_type random32::raw_next()
 }
 
 // ####################################################################################
-// --------------------------------- DISTRIBUTATIONS --------------------------------//
+// ----------------------------- BASIC DISTRIBUTATIONS ------------------------------//
 // ####################################################################################
 
 
@@ -191,11 +188,15 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE T random32::variation(T mean, T stddev)
     return d(m_engine);
 }
 
+// ####################################################################################
+// ----------------------- CONTAINER / ITERATOR OPERATIONS  -------------------------//
+// ####################################################################################
+
 template<std::input_iterator Iter>
 JMAN_NO_DISCARD JMAN_FORCE_INLINE const typename std::iterator_traits<Iter>::value_type& random32::choice(Iter begin, Iter end)
 {
     std::uniform_int_distribution<> d{0, std::distance(begin, end)};
-    return *std::advance(begin, d(m_engine));
+    return *std::next(begin, d(m_engine));
 }
 
 template<std::input_iterator Iter>
@@ -203,7 +204,7 @@ requires std::is_same_v<typename std::iterator_traits<Iter>::value_type, double>
 JMAN_NO_DISCARD JMAN_FORCE_INLINE Iter random32::weighted_iter(Iter begin, Iter end)
 {
     std::discrete_distribution<> d{begin, end};
-    return std::advance(begin, d(m_engine));
+    return std::next(begin, d(m_engine));
 }
 
 // ###################################################################################################################
@@ -265,7 +266,7 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE random64::result_type random64::raw_next()
 }
 
 // ####################################################################################
-// --------------------------------- DISTRIBUTATIONS --------------------------------//
+// ----------------------------- BASIC DISTRIBUTATIONS ------------------------------//
 // ####################################################################################
 
 
@@ -302,32 +303,23 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE T random64::variation(T mean, T stddev)
     return d(m_engine);
 }
 
-template<typename T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& random64::choice(const std::vector<T>& vec)
+// ####################################################################################
+// ----------------------- CONTAINER / ITERATOR OPERATIONS  -------------------------//
+// ####################################################################################
+
+template<std::input_iterator Iter>
+JMAN_NO_DISCARD JMAN_FORCE_INLINE const typename std::iterator_traits<Iter>::value_type& random64::choice(Iter begin, Iter end)
 {
-    std::uniform_int_distribution<> d{ 0, vec.size() - 1 };
-    return vec[d(m_engine)];
+    std::uniform_int_distribution<> d{0, std::distance(begin, end)};
+    return *std::next(begin, d(m_engine));
 }
 
-template<typename T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE const T& random64::choice(std::initializer_list<T> list)
+template<std::input_iterator Iter>
+requires std::is_same_v<typename std::iterator_traits<Iter>::value_type, double>
+JMAN_NO_DISCARD JMAN_FORCE_INLINE Iter random64::weighted_iter(Iter begin, Iter end)
 {
-    std::uniform_int_distribution<> d{ 0, list.size() - 1 };
-    return list[d(m_engine)];
-}
-
-template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t random64::weighted_index(const std::vector<T>& weights)
-{
-    std::discrete_distribution<std::size_t> d{weights.begin(), weights.end()};
-    return d(m_engine);
-}
-
-template<std::floating_point T>
-JMAN_NO_DISCARD JMAN_FORCE_INLINE std::size_t random64::weighted_index(std::initializer_list<T> weights)
-{
-    std::discrete_distribution<std::size_t> d{weights.begin(), weights.end()};
-    return d(m_engine);
+    std::discrete_distribution<> d{begin, end};
+    return std::next(begin, d(m_engine));
 }
 
 } // namespace jman

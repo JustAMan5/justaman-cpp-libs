@@ -1,7 +1,6 @@
 #pragma once
 
 #include <justaman/utils/attributes.h>
-#include <cstddef>
 #include <type_traits>
 #include <utility>
 #if !(defined (__cpp_lib_constexpr_new) && __cpp_lib_constexpr_new >= 202406L)
@@ -12,32 +11,32 @@ namespace jman
 {
 
 // #############################################################################################################
-// ---------------------------------------------- CONSTRUCTING -----------------------------------------------//
+// ---------------------------------------------- CONSTRUCTION -----------------------------------------------//
 // #############################################################################################################
 
 /**
     @brief 
-        wrapper around regular placement-new operator
+        wrapper around regular placement-new operator or std::construct_at when C++26 constexpr suppport is not available
 */
 template <typename T, typename ...Args>
 JMAN_FORCE_INLINE constexpr T* construct_at(T* ptr, Args&&... args)
     noexcept(std::is_nothrow_constructible_v<T, Args...>) 
 {
-#   if defined (__cpp_lib_constexpr_new) && __cpp_lib_constexpr_new >= 202406L
-    // happy path! compiler supports constexpr placement new!
+#if defined (__cpp_lib_constexpr_new) && __cpp_lib_constexpr_new >= 202406L
+        // happy path! compiler supports constexpr placement new!
         if constexpr (std::is_array_v<T>)
             return ::new (static_cast<void*>(ptr)) T[1]();
         else
             return ::new(static_cast<void*>(ptr)) T{std::forward<Args>(args)...};
-#   else
-    // sad path :(, compiler doesnt support placement new with constexpr
+#else
+        // sad path :(, compiler doesnt support placement new with constexpr
         return std::construct_at(ptr, std::forward<Args>(args)...);
-#   endif
+#endif
 }
 
 
 // #############################################################################################################
-// ---------------------------------------------- DESTRUCTING -----------------------------------------------//
+// ---------------------------------------------- DESTRUCTION -----------------------------------------------//
 // #############################################################################################################
 
 /**
@@ -56,16 +55,18 @@ JMAN_FORCE_INLINE constexpr void destruct_at(T* ptr)
     @brief 
         Calls destructors (if non trivial) starting from [ptr] and ending at [ptr + @count - 1] moving forward
     
-    @param count: amount of objects to destroy, the type for count is std::ptrdiff_t
+    @param count: amount of objects to destroy
 */
-template <typename T>
-JMAN_FORCE_INLINE constexpr void destruct_at(T* ptr, std::ptrdiff_t count)
+template <typename T, typename SizeType>
+JMAN_FORCE_INLINE constexpr void destruct_at(T* ptr, SizeType count)
     noexcept(std::is_nothrow_destructible_v<T>)
 {
+    static_assert(std::is_integral_v<SizeType>, "SizeType must be an integral type.");
+
     if constexpr (std::is_trivially_destructible_v<T>)
         return;
 
-    for (std::ptrdiff_t i = 0; i < count; ++i)
+    for (SizeType i = 0; i < count; ++i)
         (ptr + i)->~T();
 }
 
@@ -73,50 +74,18 @@ JMAN_FORCE_INLINE constexpr void destruct_at(T* ptr, std::ptrdiff_t count)
     @brief 
         Calls destructors (if non trivial) starting from [ptr + @count - 1] ending at [ptr] moving backwards
     
-    @param count: amount of objects to destroy, the type for count is std::ptrdiff_t
+    @param count: amount of objects to destroy
 */
-template <typename T>
-JMAN_FORCE_INLINE constexpr void destruct_at(std::ptrdiff_t count, T* ptr)
+template <typename T, typename SizeType>
+JMAN_FORCE_INLINE constexpr void destruct_at(SizeType count, T* ptr)
     noexcept(std::is_nothrow_destructible_v<T>)
 {
+    static_assert(std::is_integral_v<SizeType>, "SizeType must be an integral type.");
+
     if constexpr (std::is_trivially_destructible_v<T>)
         return;
 
-    for (std::ptrdiff_t i = count; i-- > 0;)
-        (ptr + i)->~T();
-}
-
-/**
-    @brief 
-        Calls destructors (if non trivial) starting from [ptr] and ending at [ptr + @count - 1] moving forward
-    
-    @param count: amount of objects to destroy, the type for count is std::size_t
-*/
-template <typename T>
-JMAN_FORCE_INLINE constexpr void destruct_at(T* ptr, std::size_t count)
-    noexcept(std::is_nothrow_destructible_v<T>)
-{
-    if constexpr (std::is_trivially_destructible_v<T>)
-        return;
-
-    for (std::size_t i = 0; i < count; ++i)
-        (ptr + i)->~T();
-}
-
-/**
-    @brief 
-        Calls destructors (if non trivial) starting from [ptr + @count - 1] ending at [ptr] moving backwards
-    
-    @param count: amount of objects to destroy, the type for count is std::size_t
-*/
-template <typename T>
-JMAN_FORCE_INLINE constexpr void destruct_at(std::size_t count, T* ptr)
-    noexcept(std::is_nothrow_destructible_v<T>)
-{
-    if constexpr (std::is_trivially_destructible_v<T>)
-        return;
-
-    for (std::size_t i = count; i-- > 0;)
+    for (SizeType i = count; i-- > 0;)
         (ptr + i)->~T();
 }
 
@@ -134,11 +103,7 @@ JMAN_NO_DISCARD JMAN_FORCE_INLINE constexpr T* addressof(T& x) noexcept
 #   if defined (__has_builtin) && __has_builtin(__builtin_addressof)
         return __builtin_addressof(x);
 #   else
-        return reinterpret_cast<T*>(
-            &const_cast<char&>(
-                reinterpret_cast<const volatile char&>(x)
-            )
-        ); // dirty little trick that compilers used to bypass it, seems that is just making the compiler thing the object are raw bytes
+        return std::addressof(x);
 #   endif
 }
     

@@ -53,25 +53,21 @@ JMAN_NO_DISCARD
 constexpr bool validate_mul(const T& a, const T& b, T* result)
 {
     if (a == 0 || b == 0) return true;
-    #if defined (__has_builtin) && __has_builtin(__builtin_mul_overflow)
-        return !__builtin_mul_overflow(a, b, result);
-    #else
-        *result = a * b;
-        if constexpr (std::is_unsigned_v<T>)
-            return a <= std::numeric_limits<T>::max() / b;
-        else
-            if (a > 0) {
-                if (b > 0) 
-                    return a <= std::numeric_limits<T>::max() / b;    // pos * pos
-                else 
-                    return b >= std::numeric_limits<T>::min() / a;    // pos * neg
-            } else {
-                if (b > 0) 
-                    return a >= std::numeric_limits<T>::min() / b;    // neg * pos
-                else 
-                    return b >= std::numeric_limits<T>::max() / a;    // neg * neg
-            }
-    #endif
+
+#if defined (__has_builtin) && __has_builtin(__builtin_mul_overflow)
+    return !__builtin_mul_overflow(a, b, result);
+#else
+    *result = a * b;
+    if constexpr (std::is_unsigned_v<T>)
+        return a <= std::numeric_limits<T>::max() / b;
+    else
+        if (a > 0) 
+            return (b > 0) ? (a <= std::numeric_limits<T>::max() / b)     // pos * pos
+                           : (b >= std::numeric_limits<T>::min() / a);    // pos * neg
+        else 
+            return (b > 0) ? (a >= std::numeric_limits<T>::min() / b)     // neg * pos
+                           : (b >= std::numeric_limits<T>::max() / a);    // neg * neg
+#endif
 }
 
 /**
@@ -82,18 +78,16 @@ template <typename T>
 JMAN_NO_DISCARD 
 constexpr bool validate_add(const T& a, const T& b, T* result)
 {
-    #if defined (__has_builtin) && __has_builtin(__builtin_add_overflow)
-        return !__builtin_add_overflow(a, b, result);
-    #else
-        *result = a + b;
-        if constexpr (std::is_unsigned_v<T>)
-            return a <= std::numeric_limits<T>::max() - b;
-        else
-            if (b > 0)
-                return a <= std::numeric_limits<T>::max() - b;
-            else
-                return a >= std::numeric_limits<T>::min() - b;
-    #endif
+#if defined (__has_builtin) && __has_builtin(__builtin_add_overflow)
+    return !__builtin_add_overflow(a, b, result);
+#else
+    *result = a + b;
+    if constexpr (std::is_unsigned_v<T>)
+        return a <= std::numeric_limits<T>::max() - b;
+    else
+        return (b > 0) ? (a <= std::numeric_limits<T>::max() - b)
+                       : (a >= std::numeric_limits<T>::min() - b);
+#endif
 }
 
 } // namespace jman

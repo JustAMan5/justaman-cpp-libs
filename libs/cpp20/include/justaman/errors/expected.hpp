@@ -56,7 +56,7 @@ namespace jman
 namespace jman 
 {
     template <class T, class E>
-    class expected 
+    class JMAN_DEPRECATED expected 
     {
         static_assert(!std::is_reference_v<T>);
         static_assert(!std::is_function_v<T>);
